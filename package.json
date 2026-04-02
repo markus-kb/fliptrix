@@ -1,0 +1,31 @@
+{
+  "name": "fliptrix",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "biome lint biome.json index.html package.json src src-tauri/tauri.conf.json tsconfig.json vite.config.ts",
+    "format": "biome format --write biome.json index.html package.json src src-tauri/tauri.conf.json tsconfig.json vite.config.ts",
+    "format:check": "biome format biome.json index.html package.json src src-tauri/tauri.conf.json tsconfig.json vite.config.ts",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-store": "^2.4.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.9",
+    "@tauri-apps/cli": "^2",
+    "jsdom": "^29.0.1",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "vitest": "^4.1.2"
+  }
+}
