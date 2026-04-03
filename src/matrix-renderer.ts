@@ -69,28 +69,28 @@ export function deriveMatrixLayerConfigs(base: MatrixConfig): MatrixLayerConfig[
   return [
     {
       id: "far",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.78)),
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.84)),
       alpha: 0.16,
-      compositeBlur: 3.1,
-      glowBlur: Math.max(0.8, glow * 0.45),
+      compositeBlur: 4.2,
+      glowBlur: Math.max(1.2, glow * 0.7),
       spawnDensity: clampProbability(base.spawnDensity * 0.35),
       tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.7)),
     },
     {
       id: "mid",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.96)),
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 1.06)),
       alpha: 0.32,
-      compositeBlur: 1.8,
-      glowBlur: Math.max(1.1, glow * 0.72),
+      compositeBlur: 2.7,
+      glowBlur: Math.max(1.8, glow * 1.1),
       spawnDensity: clampProbability(base.spawnDensity * 0.6),
       tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.25)),
     },
     {
       id: "foreground",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 1.08)),
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 1.22)),
       alpha: 0.96,
-      compositeBlur: 0.45,
-      glowBlur: glow * 1.9,
+      compositeBlur: 0.95,
+      glowBlur: glow * 2.35,
       spawnDensity: clampProbability(base.spawnDensity),
       tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs)),
     },
@@ -381,66 +381,66 @@ export class MatrixRenderer {
     if (brightness > 0.95) {
       return {
         coreRgb: HEAD_RGB,
-        coreAlpha: 0.9,
+        coreAlpha: 0.86,
         glowRgb: HEAD_RGB,
-        glowAlpha: isForeground ? 0.62 : 0.24,
-        glowBlur: isForeground ? layer.config.glowBlur : layer.config.glowBlur * 0.55,
+        glowAlpha: isForeground ? 0.72 : 0.3,
+        glowBlur: isForeground ? layer.config.glowBlur * 1.05 : layer.config.glowBlur * 0.72,
       };
     }
 
     if (brightness > 0.78) {
       return {
         coreRgb: MATRIX_GREEN_PALETTE[6],
-        coreAlpha: 0.82,
+        coreAlpha: 0.74,
         glowRgb: MATRIX_GREEN_PALETTE[6],
-        glowAlpha: isForeground ? 0.36 : 0.12,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.85 : layer.config.glowBlur * 0.4,
+        glowAlpha: isForeground ? 0.48 : 0.18,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.95 : layer.config.glowBlur * 0.55,
       };
     }
 
     if (brightness > 0.62) {
       return {
         coreRgb: TRAIL_BRIGHT_RGB,
-        coreAlpha: 0.76,
+        coreAlpha: 0.64,
         glowRgb: TRAIL_BRIGHT_RGB,
-        glowAlpha: isForeground ? 0.26 : 0.08,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.62 : layer.config.glowBlur * 0.25,
+        glowAlpha: isForeground ? 0.4 : 0.14,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.82 : layer.config.glowBlur * 0.45,
       };
     }
 
     if (brightness > 0.42) {
       return {
         coreRgb: TRAIL_HIGH_RGB,
-        coreAlpha: 0.68,
+        coreAlpha: 0.54,
         glowRgb: TRAIL_HIGH_RGB,
-        glowAlpha: isForeground ? 0.16 : 0.04,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.48 : layer.config.glowBlur * 0.18,
+        glowAlpha: isForeground ? 0.3 : 0.1,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.68 : layer.config.glowBlur * 0.36,
       };
     }
 
     if (brightness > 0.24) {
       return {
         coreRgb: TRAIL_MID_RGB,
-        coreAlpha: 0.58,
+        coreAlpha: 0.46,
         glowRgb: TRAIL_MID_RGB,
-        glowAlpha: isForeground ? 0.08 : 0,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.28 : 0,
+        glowAlpha: isForeground ? 0.2 : 0.05,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.52 : layer.config.glowBlur * 0.22,
       };
     }
 
     if (brightness > 0.12) {
       return {
         coreRgb: TRAIL_DIM_RGB,
-        coreAlpha: 0.42,
+        coreAlpha: 0.34,
         glowRgb: TRAIL_DIM_RGB,
-        glowAlpha: 0,
-        glowBlur: 0,
+        glowAlpha: isForeground ? 0.12 : 0.03,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.36 : layer.config.glowBlur * 0.12,
       };
     }
 
     return {
       coreRgb: TRAIL_VOID_RGB,
-      coreAlpha: 0.34,
+      coreAlpha: 0.24,
       glowRgb: TRAIL_VOID_RGB,
       glowAlpha: 0,
       glowBlur: 0,

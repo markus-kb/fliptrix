@@ -127,7 +127,15 @@ describe("deriveMatrixLayerConfigs", () => {
   it("gives the foreground a slightly larger apparent glyph size", () => {
     const [, , foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
 
-    expect(foreground.fontSize).toBeGreaterThan(DEFAULT_MATRIX_CONFIG.fontSize);
+    expect(foreground.fontSize).toBeGreaterThanOrEqual(
+      Math.round(DEFAULT_MATRIX_CONFIG.fontSize * 1.18),
+    );
+  });
+
+  it("pushes the foreground blur beyond the base glow setting", () => {
+    const [, , foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+
+    expect(foreground.glowBlur).toBeGreaterThan(DEFAULT_MATRIX_CONFIG.glowIntensity * 2);
   });
 });
 
