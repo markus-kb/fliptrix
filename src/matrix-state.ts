@@ -191,9 +191,9 @@ export interface MatrixCell {
 // ---------------------------------------------------------------------------
 
 /** Minimum trail length in cells. */
-const MIN_TRAIL = 4;
+const MIN_TRAIL = 8;
 /** Maximum trail length in cells. */
-const MAX_TRAIL = 20;
+const MAX_TRAIL = 28;
 /** Default number of ticks between drop moves (base speed). */
 const BASE_SPEED = 2;
 /** Speed variation ± ticks around BASE_SPEED. */
@@ -293,7 +293,7 @@ export function spawnDrops(board: MatrixBoard, density: number): void {
 /** How much brightness decays per cell above the head (linear fade). */
 const TRAIL_BRIGHTNESS_STEP = 1 / (MAX_TRAIL + 1);
 /** Brightness fade-out rate for idle cells per tick. */
-const FADE_RATE = 0.08;
+const FADE_RATE = 0.05;
 
 /**
  * Advance the board state by one tick.

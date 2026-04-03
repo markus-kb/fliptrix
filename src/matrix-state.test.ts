@@ -215,6 +215,15 @@ describe("spawnDrops", () => {
     // With 20 columns we should see some variation in trail lengths
     expect(lengths.size).toBeGreaterThan(1);
   });
+
+  it("uses longer trails so the glow can linger like the film rain", () => {
+    const board = createMatrixBoard(40, 12);
+    spawnDrops(board, 1.0);
+
+    for (const column of board.columns) {
+      expect(column.drop?.trailLength ?? 0).toBeGreaterThanOrEqual(8);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
