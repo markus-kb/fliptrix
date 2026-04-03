@@ -70,27 +70,27 @@ export function deriveMatrixLayerConfigs(base: MatrixConfig): MatrixLayerConfig[
     {
       id: "far",
       fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.78)),
-      alpha: 0.18,
-      compositeBlur: 2.4,
-      glowBlur: Math.max(0.5, glow * 0.3),
+      alpha: 0.16,
+      compositeBlur: 3.1,
+      glowBlur: Math.max(0.8, glow * 0.45),
       spawnDensity: clampProbability(base.spawnDensity * 0.35),
       tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.7)),
     },
     {
       id: "mid",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.9)),
-      alpha: 0.38,
-      compositeBlur: 1.1,
-      glowBlur: Math.max(0.75, glow * 0.55),
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.96)),
+      alpha: 0.32,
+      compositeBlur: 1.8,
+      glowBlur: Math.max(1.1, glow * 0.72),
       spawnDensity: clampProbability(base.spawnDensity * 0.6),
       tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.25)),
     },
     {
       id: "foreground",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize)),
-      alpha: 1,
-      compositeBlur: 0,
-      glowBlur: glow * 1.45,
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 1.08)),
+      alpha: 0.96,
+      compositeBlur: 0.45,
+      glowBlur: glow * 1.9,
       spawnDensity: clampProbability(base.spawnDensity),
       tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs)),
     },
@@ -106,11 +106,23 @@ function clampProbability(value: number): number {
 // ---------------------------------------------------------------------------
 
 const BG_COLOR = "#000000";
-const HEAD_RGB: readonly [number, number, number] = [204, 255, 204];
-const PACKET_RGB: readonly [number, number, number] = [232, 255, 232];
-const TRAIL_BRIGHT_RGB: readonly [number, number, number] = [0, 255, 65];
-const TRAIL_MID_RGB: readonly [number, number, number] = [0, 122, 31];
-const TRAIL_DIM_RGB: readonly [number, number, number] = [0, 61, 15];
+export const MATRIX_GREEN_PALETTE: ReadonlyArray<readonly [number, number, number]> = [
+  [0, 24, 8],
+  [0, 42, 14],
+  [0, 62, 20],
+  [6, 92, 28],
+  [16, 128, 38],
+  [38, 176, 68],
+  [88, 224, 128],
+  [154, 242, 182],
+];
+const PACKET_RGB: readonly [number, number, number] = [118, 232, 150];
+const TRAIL_VOID_RGB = MATRIX_GREEN_PALETTE[0];
+const TRAIL_DIM_RGB = MATRIX_GREEN_PALETTE[1];
+const TRAIL_MID_RGB = MATRIX_GREEN_PALETTE[3];
+const TRAIL_HIGH_RGB = MATRIX_GREEN_PALETTE[4];
+const TRAIL_BRIGHT_RGB = MATRIX_GREEN_PALETTE[5];
+const HEAD_RGB = MATRIX_GREEN_PALETTE[7];
 
 // ---------------------------------------------------------------------------
 // Layout helper
@@ -359,47 +371,77 @@ export class MatrixRenderer {
     if (isPacket) {
       return {
         coreRgb: PACKET_RGB,
-        coreAlpha: isForeground ? 1 : 0.8,
+        coreAlpha: isForeground ? 0.9 : 0.7,
         glowRgb: PACKET_RGB,
-        glowAlpha: isForeground ? 0.65 : 0.25,
-        glowBlur: isForeground ? layer.config.glowBlur * 1.15 : layer.config.glowBlur * 0.5,
+        glowAlpha: isForeground ? 0.42 : 0.18,
+        glowBlur: isForeground ? layer.config.glowBlur * 1.35 : layer.config.glowBlur * 0.7,
       };
     }
 
     if (brightness > 0.95) {
       return {
         coreRgb: HEAD_RGB,
-        coreAlpha: 1,
+        coreAlpha: 0.9,
         glowRgb: HEAD_RGB,
-        glowAlpha: isForeground ? 0.8 : 0.2,
-        glowBlur: isForeground ? layer.config.glowBlur : layer.config.glowBlur * 0.45,
+        glowAlpha: isForeground ? 0.62 : 0.24,
+        glowBlur: isForeground ? layer.config.glowBlur : layer.config.glowBlur * 0.55,
       };
     }
 
-    if (brightness > 0.5) {
+    if (brightness > 0.78) {
+      return {
+        coreRgb: MATRIX_GREEN_PALETTE[6],
+        coreAlpha: 0.82,
+        glowRgb: MATRIX_GREEN_PALETTE[6],
+        glowAlpha: isForeground ? 0.36 : 0.12,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.85 : layer.config.glowBlur * 0.4,
+      };
+    }
+
+    if (brightness > 0.62) {
       return {
         coreRgb: TRAIL_BRIGHT_RGB,
-        coreAlpha: 0.92,
+        coreAlpha: 0.76,
         glowRgb: TRAIL_BRIGHT_RGB,
-        glowAlpha: isForeground ? 0.42 : 0.14,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.7 : layer.config.glowBlur * 0.3,
+        glowAlpha: isForeground ? 0.26 : 0.08,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.62 : layer.config.glowBlur * 0.25,
       };
     }
 
-    if (brightness > 0.2) {
+    if (brightness > 0.42) {
+      return {
+        coreRgb: TRAIL_HIGH_RGB,
+        coreAlpha: 0.68,
+        glowRgb: TRAIL_HIGH_RGB,
+        glowAlpha: isForeground ? 0.16 : 0.04,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.48 : layer.config.glowBlur * 0.18,
+      };
+    }
+
+    if (brightness > 0.24) {
       return {
         coreRgb: TRAIL_MID_RGB,
-        coreAlpha: 0.78,
+        coreAlpha: 0.58,
         glowRgb: TRAIL_MID_RGB,
-        glowAlpha: isForeground ? 0.12 : 0,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.35 : 0,
+        glowAlpha: isForeground ? 0.08 : 0,
+        glowBlur: isForeground ? layer.config.glowBlur * 0.28 : 0,
+      };
+    }
+
+    if (brightness > 0.12) {
+      return {
+        coreRgb: TRAIL_DIM_RGB,
+        coreAlpha: 0.42,
+        glowRgb: TRAIL_DIM_RGB,
+        glowAlpha: 0,
+        glowBlur: 0,
       };
     }
 
     return {
-      coreRgb: TRAIL_DIM_RGB,
-      coreAlpha: 0.5,
-      glowRgb: TRAIL_DIM_RGB,
+      coreRgb: TRAIL_VOID_RGB,
+      coreAlpha: 0.34,
+      glowRgb: TRAIL_VOID_RGB,
       glowAlpha: 0,
       glowBlur: 0,
     };

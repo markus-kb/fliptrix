@@ -4,6 +4,7 @@ import {
   computeMatrixGrid,
   DEFAULT_MATRIX_CONFIG,
   deriveMatrixLayerConfigs,
+  MATRIX_GREEN_PALETTE,
   type MatrixConfig,
 } from "./matrix-renderer";
 
@@ -121,5 +122,24 @@ describe("deriveMatrixLayerConfigs", () => {
 
     expect(far.spawnDensity).toBeLessThan(mid.spawnDensity);
     expect(mid.spawnDensity).toBeLessThan(foreground.spawnDensity);
+  });
+
+  it("gives the foreground a slightly larger apparent glyph size", () => {
+    const [, , foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+
+    expect(foreground.fontSize).toBeGreaterThan(DEFAULT_MATRIX_CONFIG.fontSize);
+  });
+});
+
+describe("MATRIX_GREEN_PALETTE", () => {
+  it("uses more than four green shades", () => {
+    expect(MATRIX_GREEN_PALETTE.length).toBeGreaterThan(4);
+  });
+
+  it("keeps the highlight green-led instead of neutral white", () => {
+    const head = MATRIX_GREEN_PALETTE[MATRIX_GREEN_PALETTE.length - 1];
+
+    expect(head[1]).toBeGreaterThan(head[0]);
+    expect(head[1]).toBeGreaterThan(head[2]);
   });
 });
