@@ -16,11 +16,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   type AppSettings,
+  activateScreensaver,
   cloneDefaultSettings,
   getAutostartEnabled,
   getSettings,
   saveSettings,
   setAutostartEnabled,
+  withScreensaverMode,
 } from "./settings";
 
 // ---------------------------------------------------------------------------
@@ -98,6 +100,16 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
               value="${s.mode_switch_interval_mins}" />
             <span class="field-hint">How often to alternate between FlipFlap and Matrix. Default: 10</span>
           </label>
+
+          <div class="field field-actions">
+            <span class="field-label">Test immediately</span>
+            <div class="inline-actions">
+              <button type="button" id="test-matrix-btn" class="btn btn-secondary">Test Matrix now</button>
+              <button type="button" id="test-flipflap-btn" class="btn btn-secondary">Test FlipFlap now</button>
+              <button type="button" id="test-both-btn" class="btn btn-secondary">Test Both now</button>
+            </div>
+            <span class="field-hint">Applies the current form values with the selected test mode and launches the screensaver immediately.</span>
+          </div>
         </fieldset>
 
         <!-- FlipFlap -->
@@ -296,12 +308,7 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
 
   // Show/hide mode-switch-interval based on selected mode.
   const modeSelect = form.querySelector<HTMLSelectElement>('[name="mode"]');
-  const switchIntervalField = form.querySelector<HTMLElement>("#mode-switch-interval-field");
-  modeSelect?.addEventListener("change", () => {
-    if (switchIntervalField) {
-      switchIntervalField.style.display = modeSelect.value === "both" ? "" : "none";
-    }
-  });
+  modeSelect?.addEventListener("change", () => syncModeSwitchVisibility(form));
 
   // Live-update the volume range output label.
   const volumeRange = form.querySelector<HTMLInputElement>('[name="flipflap_volume"]');
@@ -320,6 +327,9 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
 
   // Refresh posts button.
   wireRefreshPosts(root);
+
+  // Manual mode test buttons.
+  wirePreviewButtons(root, form, feedback, initialSettings);
 
   // Load API key status on startup.
   loadApiKeyStatus(root);
@@ -461,6 +471,18 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
   if (volumeOutput) {
     volumeOutput.textContent = Number(s.flipflap_volume).toFixed(2);
   }
+
+  syncModeSwitchVisibility(form);
+}
+
+function syncModeSwitchVisibility(form: HTMLFormElement): void {
+  const modeSelect = form.querySelector<HTMLSelectElement>('[name="mode"]');
+  const switchIntervalField = form.querySelector<HTMLElement>("#mode-switch-interval-field");
+  if (!modeSelect || !switchIntervalField) {
+    return;
+  }
+
+  switchIntervalField.style.display = modeSelect.value === "both" ? "" : "none";
 }
 
 function showFeedback(el: HTMLElement, type: "success" | "error" | "info", message: string): void {
@@ -545,6 +567,52 @@ function wireRefreshPosts(root: HTMLElement): void {
       btn.disabled = false;
     }
   });
+}
+
+function wirePreviewButtons(
+  root: HTMLElement,
+  form: HTMLFormElement,
+  feedback: HTMLElement,
+  fallback: AppSettings,
+): void {
+  const previewButtons: Array<[string, AppSettings["mode"], string]> = [
+    ["#test-matrix-btn", "matrix", "Testing Matrix mode now."],
+    ["#test-flipflap-btn", "flip_flap", "Testing FlipFlap mode now."],
+    ["#test-both-btn", "both", "Testing Both mode now."],
+  ];
+
+  for (const [selector, mode, successMessage] of previewButtons) {
+    const button = root.querySelector<HTMLButtonElement>(selector);
+    if (!button) continue;
+
+    button.addEventListener("click", async () => {
+      const allButtons = root.querySelectorAll<HTMLButtonElement>(
+        "#test-matrix-btn, #test-flipflap-btn, #test-both-btn",
+      );
+
+      for (const control of allButtons) {
+        control.disabled = true;
+      }
+
+      try {
+        const settings = withScreensaverMode(readFormValues(form, fallback), mode);
+        await saveSettings(settings);
+        populateForm(form, settings);
+        await activateScreensaver();
+        showFeedback(feedback, "info", successMessage);
+      } catch (err) {
+        showFeedback(
+          feedback,
+          "error",
+          `Failed to start test: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      } finally {
+        for (const control of allButtons) {
+          control.disabled = false;
+        }
+      }
+    });
+  }
 }
 
 async function loadApiKeyStatus(root: HTMLElement): Promise<void> {
