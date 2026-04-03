@@ -378,7 +378,8 @@ async fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
         .map_err(|e| format!("failed to open store: {e}"))?;
 
     match store.get(STORE_KEY_APP_SETTINGS) {
-        Some(value) => serde_json::from_value(value)
+        Some(value) => serde_json::from_value::<AppSettings>(value)
+            .map(|settings| settings.upgrade_legacy_defaults())
             .map_err(|e| format!("failed to parse stored settings: {e}")),
         None => Ok(AppSettings::default()),
     }
@@ -649,7 +650,9 @@ pub fn run() {
                     .store("store.json")
                     .map_err(|e| format!("failed to open store: {e}"))?;
                 match store.get(STORE_KEY_APP_SETTINGS) {
-                    Some(v) => serde_json::from_value(v).unwrap_or_default(),
+                    Some(v) => serde_json::from_value::<AppSettings>(v)
+                        .unwrap_or_default()
+                        .upgrade_legacy_defaults(),
                     None => AppSettings::default(),
                 }
             };

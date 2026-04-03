@@ -413,7 +413,9 @@ export class FlipFlapRenderer {
     fontSize: number,
   ): void {
     const ctx = this.ctx;
+    const fullH = halfH * 2;
     const centerX = x + w / 2;
+    const centerY = y + fullH * 0.53;
 
     ctx.save();
     ctx.font = `600 ${fontSize}px "Arial Narrow", "Helvetica Neue", sans-serif`;
@@ -421,28 +423,28 @@ export class FlipFlapRenderer {
     ctx.textBaseline = "middle";
     ctx.scale(0.92, 1);
 
-    // Top half character with slight wear and reflected light.
+    // Top half clips the upper portion of a single glyph.
     ctx.save();
     ctx.beginPath();
     ctx.rect(x / 0.92, y, w / 0.92, halfH - 0.5);
     ctx.clip();
     ctx.fillStyle = "rgba(0,0,0,0.32)";
-    ctx.fillText(char, centerX / 0.92, y + halfH * 0.63);
+    ctx.fillText(char, centerX / 0.92, centerY + 2);
     ctx.fillStyle = this.theme.charPrimary;
-    ctx.fillText(char, centerX / 0.92, y + halfH * 0.58);
+    ctx.fillText(char, centerX / 0.92, centerY);
     ctx.fillStyle = "rgba(255,255,255,0.08)";
-    ctx.fillText(char, centerX / 0.92, y + halfH * 0.53);
+    ctx.fillText(char, centerX / 0.92, centerY - 2);
     ctx.restore();
 
-    // Bottom half is slightly darker and recessed.
+    // Bottom half clips the lower portion of that same glyph and recesses it.
     ctx.save();
     ctx.beginPath();
     ctx.rect(x / 0.92, y + halfH, w / 0.92, halfH);
     ctx.clip();
     ctx.fillStyle = "rgba(0,0,0,0.38)";
-    ctx.fillText(char, centerX / 0.92, y + halfH + halfH * 0.54);
+    ctx.fillText(char, centerX / 0.92, centerY + 3);
     ctx.fillStyle = this.theme.charSecondary;
-    ctx.fillText(char, centerX / 0.92, y + halfH + halfH * 0.48);
+    ctx.fillText(char, centerX / 0.92, centerY + 1);
     ctx.restore();
 
     ctx.restore();
