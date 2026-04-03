@@ -130,6 +130,8 @@ export interface RainDrop {
   ticksUntilMove: number;
   /** How many ticks between each downward step. Lower = faster. */
   speed: number;
+  /** Randomized glow multiplier for standout columns. */
+  glowBoost: number;
 }
 
 /**
@@ -198,6 +200,17 @@ const MAX_TRAIL = 28;
 const BASE_SPEED = 2;
 /** Speed variation ± ticks around BASE_SPEED. */
 const SPEED_VARIATION = 2;
+
+/**
+ * Most columns stay at baseline brightness; a smaller fraction flare brighter.
+ */
+export function pickGlowBoost(branchRoll: number, intensityRoll: number): number {
+  if (branchRoll < 0.74) {
+    return 1;
+  }
+
+  return 1.35 + intensityRoll * 1.25;
+}
 
 /** Create a fresh Matrix rain board with all cells dark. */
 export function createMatrixBoard(rows: number, cols: number): MatrixBoard {
@@ -278,6 +291,7 @@ export function spawnDrops(board: MatrixBoard, density: number): void {
       trailLength,
       ticksUntilMove: speed,
       speed,
+      glowBoost: pickGlowBoost(Math.random(), Math.random()),
     };
 
     // Brighten the head cell immediately so it's visible on first render

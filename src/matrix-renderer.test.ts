@@ -4,6 +4,7 @@ import {
   computeMatrixGrid,
   DEFAULT_MATRIX_CONFIG,
   deriveMatrixLayerConfigs,
+  MATRIX_GLYPH_PIXEL_SCALE,
   MATRIX_GREEN_PALETTE,
   type MatrixConfig,
 } from "./matrix-renderer";
@@ -149,5 +150,11 @@ describe("MATRIX_GREEN_PALETTE", () => {
 
     expect(head[1]).toBeGreaterThan(head[0]);
     expect(head[1]).toBeGreaterThan(head[2]);
+  });
+});
+
+describe("MATRIX_GLYPH_PIXEL_SCALE", () => {
+  it("renders glyph cores at a reduced internal resolution for visible pixel dots", () => {
+    expect(MATRIX_GLYPH_PIXEL_SCALE).toBeLessThan(0.7);
   });
 });
