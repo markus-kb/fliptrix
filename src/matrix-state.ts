@@ -193,9 +193,9 @@ export interface MatrixCell {
 // ---------------------------------------------------------------------------
 
 /** Minimum trail length in cells. */
-const MIN_TRAIL = 8;
+const MIN_TRAIL = 28;
 /** Maximum trail length in cells. */
-const MAX_TRAIL = 28;
+const MAX_TRAIL = 84;
 /** Default number of ticks between drop moves (base speed). */
 const BASE_SPEED = 2;
 /** Speed variation ± ticks around BASE_SPEED. */

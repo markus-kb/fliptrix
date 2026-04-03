@@ -104,29 +104,39 @@ describe("deriveMatrixLayerConfigs", () => {
   it("creates far, mid, and foreground layers in order", () => {
     const layers = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
 
-    expect(layers.map((layer) => layer.id)).toEqual(["far", "mid", "foreground"]);
+    expect(layers.map((layer) => layer.id)).toEqual([
+      "deep_far",
+      "far",
+      "mid",
+      "near",
+      "foreground",
+    ]);
   });
 
   it("keeps the foreground brightest and fastest", () => {
-    const [far, mid, foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+    const [deepFar, far, mid, near, foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
 
+    expect(far.alpha).toBeGreaterThan(deepFar.alpha);
     expect(foreground.alpha).toBeGreaterThan(mid.alpha);
     expect(mid.alpha).toBeGreaterThan(far.alpha);
     expect(foreground.glowBlur).toBeGreaterThan(mid.glowBlur);
     expect(mid.glowBlur).toBeGreaterThanOrEqual(far.glowBlur);
+    expect(near.glowBlur).toBeGreaterThan(mid.glowBlur);
     expect(foreground.tickIntervalMs).toBeLessThan(mid.tickIntervalMs);
     expect(mid.tickIntervalMs).toBeLessThan(far.tickIntervalMs);
   });
 
   it("keeps the background sparser than the foreground", () => {
-    const [far, mid, foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+    const [deepFar, far, mid, near, foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
 
+    expect(deepFar.spawnDensity).toBeLessThan(far.spawnDensity);
     expect(far.spawnDensity).toBeLessThan(mid.spawnDensity);
     expect(mid.spawnDensity).toBeLessThan(foreground.spawnDensity);
+    expect(near.spawnDensity).toBeLessThanOrEqual(foreground.spawnDensity);
   });
 
   it("gives the foreground a slightly larger apparent glyph size", () => {
-    const [, , foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+    const [, , , , foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
 
     expect(foreground.fontSize).toBeGreaterThanOrEqual(
       Math.round(DEFAULT_MATRIX_CONFIG.fontSize * 1.18),
@@ -134,7 +144,7 @@ describe("deriveMatrixLayerConfigs", () => {
   });
 
   it("pushes the foreground blur beyond the base glow setting", () => {
-    const [, , foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+    const [, , , , foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
 
     expect(foreground.glowBlur).toBeGreaterThan(DEFAULT_MATRIX_CONFIG.glowIntensity * 2);
   });

@@ -101,19 +101,19 @@ pub struct AppSettings {
     pub flipflap_truncation_chars: usize,
 
     // --- Matrix renderer ---
-    /// Rain character font size in pixels (default: 16).
+    /// Rain character font size in pixels (default: 24).
     #[serde(default = "default_matrix_font_size")]
     pub matrix_font_size: u32,
 
-    /// Probability a column spawns a new drop per tick, 0.0–1.0 (default: 0.04).
+    /// Probability a column spawns a new drop per tick, 0.0–1.0 (default: 0.5).
     #[serde(default = "default_matrix_spawn_density")]
     pub matrix_spawn_density: f64,
 
-    /// Canvas shadow blur radius in pixels for the green glow (default: 6).
+    /// Canvas shadow blur radius in pixels for the green glow (default: 12).
     #[serde(default = "default_matrix_glow_intensity")]
     pub matrix_glow_intensity: f64,
 
-    /// Milliseconds between rain advance ticks (default: 50).
+    /// Milliseconds between rain advance ticks (default: 40).
     #[serde(default = "default_matrix_tick_ms")]
     pub matrix_tick_ms: u64,
 
@@ -173,16 +173,16 @@ fn default_flipflap_truncation_chars() -> usize {
     280
 }
 fn default_matrix_font_size() -> u32 {
-    16
+    24
 }
 fn default_matrix_spawn_density() -> f64 {
-    0.04
+    0.5
 }
 fn default_matrix_glow_intensity() -> f64 {
-    6.0
+    12.0
 }
 fn default_matrix_tick_ms() -> u64 {
-    50
+    40
 }
 fn default_matrix_post_rotation_secs() -> u64 {
     15
@@ -352,6 +352,15 @@ mod tests {
     }
 
     #[test]
+    fn test_default_matrix_settings() {
+        let settings = AppSettings::default();
+        assert_eq!(settings.matrix_font_size, 24);
+        assert!((settings.matrix_spawn_density - 0.5).abs() < f64::EPSILON);
+        assert!((settings.matrix_glow_intensity - 12.0).abs() < f64::EPSILON);
+        assert_eq!(settings.matrix_tick_ms, 40);
+    }
+
+    #[test]
     fn test_default_x_data_settings() {
         let settings = AppSettings::default();
         assert!(settings.flipflap_accounts.is_empty());
@@ -495,7 +504,7 @@ mod tests {
         assert_eq!(settings.idle_timeout_secs, 600);
         // Unspecified fields stay at defaults.
         assert_eq!(settings.flipflap_rows, 8);
-        assert_eq!(settings.matrix_font_size, 16);
+        assert_eq!(settings.matrix_font_size, 24);
         assert_eq!(settings.flipflap_time_window_hours, 24);
         assert_eq!(settings.matrix_truncation_chars, 280);
     }
