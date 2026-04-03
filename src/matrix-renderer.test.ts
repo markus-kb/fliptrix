@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { computeMatrixGrid, DEFAULT_MATRIX_CONFIG, type MatrixConfig } from "./matrix-renderer";
+import {
+  computeMatrixGrid,
+  DEFAULT_MATRIX_CONFIG,
+  deriveMatrixLayerConfigs,
+  type MatrixConfig,
+} from "./matrix-renderer";
 
 // ---------------------------------------------------------------------------
 // computeMatrixGrid
@@ -86,5 +91,35 @@ describe("MatrixConfig type contract", () => {
     };
     expect(config.fontSize).toBe(24);
     expect(config.spawnDensity).toBe(0.5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Layered depth treatment
+// ---------------------------------------------------------------------------
+
+describe("deriveMatrixLayerConfigs", () => {
+  it("creates far, mid, and foreground layers in order", () => {
+    const layers = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+
+    expect(layers.map((layer) => layer.id)).toEqual(["far", "mid", "foreground"]);
+  });
+
+  it("keeps the foreground brightest and fastest", () => {
+    const [far, mid, foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+
+    expect(foreground.alpha).toBeGreaterThan(mid.alpha);
+    expect(mid.alpha).toBeGreaterThan(far.alpha);
+    expect(foreground.glowBlur).toBeGreaterThan(mid.glowBlur);
+    expect(mid.glowBlur).toBeGreaterThanOrEqual(far.glowBlur);
+    expect(foreground.tickIntervalMs).toBeLessThan(mid.tickIntervalMs);
+    expect(mid.tickIntervalMs).toBeLessThan(far.tickIntervalMs);
+  });
+
+  it("keeps the background sparser than the foreground", () => {
+    const [far, mid, foreground] = deriveMatrixLayerConfigs(DEFAULT_MATRIX_CONFIG);
+
+    expect(far.spawnDensity).toBeLessThan(mid.spawnDensity);
+    expect(mid.spawnDensity).toBeLessThan(foreground.spawnDensity);
   });
 });
