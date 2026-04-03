@@ -7,6 +7,7 @@ import {
   injectDataPacket,
   MATRIX_CHARS,
   type MatrixBoard,
+  pickGlowBoost,
   type RainColumn,
   randomMatrixChar,
   spawnDrops,
@@ -57,6 +58,16 @@ describe("randomMatrixChar", () => {
       seen.add(randomMatrixChar());
     }
     expect(seen.size).toBeGreaterThan(1);
+  });
+});
+
+describe("pickGlowBoost", () => {
+  it("keeps most columns at the baseline glow", () => {
+    expect(pickGlowBoost(0.2, 0.4)).toBe(1);
+  });
+
+  it("lets a minority of columns flare brighter", () => {
+    expect(pickGlowBoost(0.95, 0.75)).toBeGreaterThan(1);
   });
 });
 

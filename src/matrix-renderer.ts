@@ -106,6 +106,7 @@ function clampProbability(value: number): number {
 // ---------------------------------------------------------------------------
 
 const BG_COLOR = "#000000";
+export const MATRIX_GLYPH_PIXEL_SCALE = 0.5;
 export const MATRIX_GREEN_PALETTE: ReadonlyArray<readonly [number, number, number]> = [
   [0, 24, 8],
   [0, 42, 14],
@@ -174,6 +175,8 @@ interface GlyphStyle {
 export class MatrixRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private glyphScratchCanvas: HTMLCanvasElement;
+  private glyphScratchCtx: CanvasRenderingContext2D;
   private config: MatrixConfig;
   private layers: MatrixLayerRuntime[] = [];
 
@@ -190,6 +193,11 @@ export class MatrixRenderer {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Failed to get 2d canvas context");
     this.ctx = ctx;
+
+    this.glyphScratchCanvas = document.createElement("canvas");
+    const glyphScratchCtx = this.glyphScratchCanvas.getContext("2d");
+    if (!glyphScratchCtx) throw new Error("Failed to get glyph scratch canvas context");
+    this.glyphScratchCtx = glyphScratchCtx;
 
     this.config = { ...DEFAULT_MATRIX_CONFIG, ...config };
     this.layers = this.createLayers();
@@ -350,14 +358,15 @@ export class MatrixRenderer {
     ctx.textBaseline = "top";
 
     const centerX = x + cellSize / 2;
+    const glowBoost = board.columns[colIndex].drop?.glowBoost ?? 1;
 
     for (let row = 0; row < grid.rows; row++) {
       const cell = getCellAt(board, row, colIndex);
       if (cell.brightness <= 0.01 && !cell.isPacket) continue;
 
-      const style = this.getGlyphStyle(layer, cell.brightness, cell.isPacket);
+      const style = this.getGlyphStyle(layer, cell.brightness, cell.isPacket, glowBoost);
       const y = row * cellSize;
-      this.drawGlyph(ctx, cell.char, centerX, y, style);
+      this.drawGlyph(ctx, cell.char, centerX, y, cellSize, style);
     }
   }
 
@@ -365,8 +374,10 @@ export class MatrixRenderer {
     layer: MatrixLayerRuntime,
     brightness: number,
     isPacket: boolean,
+    glowBoost: number,
   ): GlyphStyle {
     const isForeground = layer.config.id === "foreground";
+    const effectiveGlowBoost = isPacket ? 1 : glowBoost;
 
     if (isPacket) {
       return {
@@ -379,63 +390,81 @@ export class MatrixRenderer {
     }
 
     if (brightness > 0.95) {
-      return {
-        coreRgb: HEAD_RGB,
-        coreAlpha: 0.86,
-        glowRgb: HEAD_RGB,
-        glowAlpha: isForeground ? 0.72 : 0.3,
-        glowBlur: isForeground ? layer.config.glowBlur * 1.05 : layer.config.glowBlur * 0.72,
-      };
+      return this.applyGlowBoost(
+        {
+          coreRgb: HEAD_RGB,
+          coreAlpha: 0.86,
+          glowRgb: HEAD_RGB,
+          glowAlpha: isForeground ? 0.72 : 0.3,
+          glowBlur: isForeground ? layer.config.glowBlur * 1.05 : layer.config.glowBlur * 0.72,
+        },
+        effectiveGlowBoost,
+      );
     }
 
     if (brightness > 0.78) {
-      return {
-        coreRgb: MATRIX_GREEN_PALETTE[6],
-        coreAlpha: 0.74,
-        glowRgb: MATRIX_GREEN_PALETTE[6],
-        glowAlpha: isForeground ? 0.48 : 0.18,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.95 : layer.config.glowBlur * 0.55,
-      };
+      return this.applyGlowBoost(
+        {
+          coreRgb: MATRIX_GREEN_PALETTE[6],
+          coreAlpha: 0.74,
+          glowRgb: MATRIX_GREEN_PALETTE[6],
+          glowAlpha: isForeground ? 0.48 : 0.18,
+          glowBlur: isForeground ? layer.config.glowBlur * 0.95 : layer.config.glowBlur * 0.55,
+        },
+        effectiveGlowBoost,
+      );
     }
 
     if (brightness > 0.62) {
-      return {
-        coreRgb: TRAIL_BRIGHT_RGB,
-        coreAlpha: 0.64,
-        glowRgb: TRAIL_BRIGHT_RGB,
-        glowAlpha: isForeground ? 0.4 : 0.14,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.82 : layer.config.glowBlur * 0.45,
-      };
+      return this.applyGlowBoost(
+        {
+          coreRgb: TRAIL_BRIGHT_RGB,
+          coreAlpha: 0.64,
+          glowRgb: TRAIL_BRIGHT_RGB,
+          glowAlpha: isForeground ? 0.4 : 0.14,
+          glowBlur: isForeground ? layer.config.glowBlur * 0.82 : layer.config.glowBlur * 0.45,
+        },
+        effectiveGlowBoost,
+      );
     }
 
     if (brightness > 0.42) {
-      return {
-        coreRgb: TRAIL_HIGH_RGB,
-        coreAlpha: 0.54,
-        glowRgb: TRAIL_HIGH_RGB,
-        glowAlpha: isForeground ? 0.3 : 0.1,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.68 : layer.config.glowBlur * 0.36,
-      };
+      return this.applyGlowBoost(
+        {
+          coreRgb: TRAIL_HIGH_RGB,
+          coreAlpha: 0.54,
+          glowRgb: TRAIL_HIGH_RGB,
+          glowAlpha: isForeground ? 0.3 : 0.1,
+          glowBlur: isForeground ? layer.config.glowBlur * 0.68 : layer.config.glowBlur * 0.36,
+        },
+        effectiveGlowBoost,
+      );
     }
 
     if (brightness > 0.24) {
-      return {
-        coreRgb: TRAIL_MID_RGB,
-        coreAlpha: 0.46,
-        glowRgb: TRAIL_MID_RGB,
-        glowAlpha: isForeground ? 0.2 : 0.05,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.52 : layer.config.glowBlur * 0.22,
-      };
+      return this.applyGlowBoost(
+        {
+          coreRgb: TRAIL_MID_RGB,
+          coreAlpha: 0.46,
+          glowRgb: TRAIL_MID_RGB,
+          glowAlpha: isForeground ? 0.2 : 0.05,
+          glowBlur: isForeground ? layer.config.glowBlur * 0.52 : layer.config.glowBlur * 0.22,
+        },
+        effectiveGlowBoost,
+      );
     }
 
     if (brightness > 0.12) {
-      return {
-        coreRgb: TRAIL_DIM_RGB,
-        coreAlpha: 0.34,
-        glowRgb: TRAIL_DIM_RGB,
-        glowAlpha: isForeground ? 0.12 : 0.03,
-        glowBlur: isForeground ? layer.config.glowBlur * 0.36 : layer.config.glowBlur * 0.12,
-      };
+      return this.applyGlowBoost(
+        {
+          coreRgb: TRAIL_DIM_RGB,
+          coreAlpha: 0.34,
+          glowRgb: TRAIL_DIM_RGB,
+          glowAlpha: isForeground ? 0.12 : 0.03,
+          glowBlur: isForeground ? layer.config.glowBlur * 0.36 : layer.config.glowBlur * 0.12,
+        },
+        effectiveGlowBoost,
+      );
     }
 
     return {
@@ -447,11 +476,25 @@ export class MatrixRenderer {
     };
   }
 
+  private applyGlowBoost(style: GlyphStyle, glowBoost: number): GlyphStyle {
+    if (glowBoost <= 1) {
+      return style;
+    }
+
+    return {
+      ...style,
+      coreAlpha: Math.min(1, style.coreAlpha * (0.94 + glowBoost * 0.12)),
+      glowAlpha: Math.min(1, style.glowAlpha * (0.82 + glowBoost * 0.36)),
+      glowBlur: style.glowBlur * (0.9 + glowBoost * 0.24),
+    };
+  }
+
   private drawGlyph(
     ctx: CanvasRenderingContext2D,
     char: string,
     x: number,
     y: number,
+    cellSize: number,
     style: GlyphStyle,
   ): void {
     if (style.glowBlur > 0 && style.glowAlpha > 0) {
@@ -463,8 +506,49 @@ export class MatrixRenderer {
       ctx.shadowColor = "transparent";
     }
 
-    ctx.fillStyle = rgba(style.coreRgb, style.coreAlpha);
-    ctx.fillText(char, x, y);
+    this.drawPixelatedCore(ctx, char, x, y, cellSize, style);
+  }
+
+  private drawPixelatedCore(
+    ctx: CanvasRenderingContext2D,
+    char: string,
+    x: number,
+    y: number,
+    cellSize: number,
+    style: GlyphStyle,
+  ): void {
+    const pixelFontSize = Math.max(4, Math.round(cellSize * MATRIX_GLYPH_PIXEL_SCALE));
+    const scratchWidth = Math.max(16, pixelFontSize + 10);
+    const scratchHeight = Math.max(18, Math.round(pixelFontSize * 1.6) + 10);
+
+    if (
+      this.glyphScratchCanvas.width !== scratchWidth ||
+      this.glyphScratchCanvas.height !== scratchHeight
+    ) {
+      this.glyphScratchCanvas.width = scratchWidth;
+      this.glyphScratchCanvas.height = scratchHeight;
+    }
+
+    this.glyphScratchCtx.clearRect(0, 0, scratchWidth, scratchHeight);
+    this.glyphScratchCtx.font = `${pixelFontSize}px "MS Gothic", "Osaka", monospace`;
+    this.glyphScratchCtx.textAlign = "center";
+    this.glyphScratchCtx.textBaseline = "top";
+    this.glyphScratchCtx.fillStyle = rgba(style.coreRgb, style.coreAlpha);
+    this.glyphScratchCtx.fillText(char, scratchWidth / 2, 2);
+
+    const drawWidth = Math.max(1, Math.round(cellSize * 0.98));
+    const drawHeight = Math.max(1, Math.round(cellSize * 1.24));
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(
+      this.glyphScratchCanvas,
+      Math.round(x - drawWidth / 2),
+      Math.round(y),
+      drawWidth,
+      drawHeight,
+    );
+    ctx.restore();
   }
 
   private createLayers(): MatrixLayerRuntime[] {
