@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mode_switch_interval_mins: 10,
   flipflap_rows: 8,
   flipflap_cols: 40,
-  flipflap_tick_ms: 30,
+  flipflap_tick_ms: 80,
   flipflap_rotation_secs: 20,
   flipflap_volume: 0.6,
   flipflap_accounts: [],

@@ -121,11 +121,13 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
               <span class="field-label">Rows</span>
               <input type="number" name="flipflap_rows" min="1" max="32"
                 value="${s.flipflap_rows}" />
+              <span class="field-hint">Default: 8</span>
             </label>
             <label class="field">
               <span class="field-label">Columns</span>
               <input type="number" name="flipflap_cols" min="1" max="120"
                 value="${s.flipflap_cols}" />
+              <span class="field-hint">Default: 40</span>
             </label>
           </div>
 
@@ -134,7 +136,7 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
               <span class="field-label">Tick (ms)</span>
               <input type="number" name="flipflap_tick_ms" min="5" max="500"
                 value="${s.flipflap_tick_ms}" />
-              <span class="field-hint">Animation speed. Default: 30</span>
+              <span class="field-hint">Animation speed. Default: 80</span>
             </label>
             <label class="field">
               <span class="field-label">Post rotation (seconds)</span>

@@ -18,7 +18,7 @@ describe("DEFAULT_SETTINGS", () => {
   it("has expected FlipFlap defaults", () => {
     expect(DEFAULT_SETTINGS.flipflap_rows).toBe(8);
     expect(DEFAULT_SETTINGS.flipflap_cols).toBe(40);
-    expect(DEFAULT_SETTINGS.flipflap_tick_ms).toBe(30);
+    expect(DEFAULT_SETTINGS.flipflap_tick_ms).toBe(80);
     expect(DEFAULT_SETTINGS.flipflap_rotation_secs).toBe(20);
     expect(DEFAULT_SETTINGS.flipflap_volume).toBeCloseTo(0.6);
   });

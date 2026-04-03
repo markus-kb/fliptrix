@@ -39,27 +39,57 @@ export interface FlipFlapConfig {
 export const DEFAULT_FLIPFLAP_CONFIG: FlipFlapConfig = {
   rows: 8,
   cols: 40,
-  tickIntervalMs: 30,
+  tickIntervalMs: 80,
   postRotationSec: 20,
   audio: null, // Populated by FlipFlapRenderer from default audio config
 };
 
 // --- Visual constants ---
 
-/** Background color for each flap cell (dark charcoal). */
-const CELL_BG = "#1a1a1a";
-/** Split line color (the gap between top and bottom halves). */
-const SPLIT_LINE_COLOR = "#0d0d0d";
-/** Character color (warm off-white, like real Solari boards). */
-const CHAR_COLOR = "#e8dcc8";
 /** Board background (darker than cells, visible as grid gaps). */
-const BOARD_BG = "#0a0a0a";
+const BOARD_BG = "#060708";
 /** Cell corner radius as fraction of cell height. */
 const CORNER_RADIUS_RATIO = 0.08;
 /** Gap between cells in pixels. */
-const CELL_GAP = 2;
+const CELL_GAP = 3;
 /** Padding around the entire board in pixels. */
-const BOARD_PADDING = 16;
+const BOARD_PADDING = 22;
+
+export interface FlapSurfaceTheme {
+  frameOuter: string;
+  frameInner: string;
+  frameHighlight: string;
+  topBase: string;
+  bottomBase: string;
+  topHighlight: string;
+  bottomShadow: string;
+  hingeShadow: string;
+  hingeMetal: string;
+  ribShadow: string;
+  rivet: string;
+  rivetShadow: string;
+  charPrimary: string;
+  charSecondary: string;
+}
+
+export function createFlapSurfaceTheme(): FlapSurfaceTheme {
+  return {
+    frameOuter: "#050607",
+    frameInner: "#13171b",
+    frameHighlight: "#2d343b",
+    topBase: "#21272d",
+    bottomBase: "#171c21",
+    topHighlight: "#3a4148",
+    bottomShadow: "#0b0e12",
+    hingeShadow: "#08090a",
+    hingeMetal: "#646a70",
+    ribShadow: "#11151a",
+    rivet: "#7b8187",
+    rivetShadow: "#090b0d",
+    charPrimary: "#efe2ca",
+    charSecondary: "#b9ab95",
+  };
+}
 
 /**
  * Manages the full FlipFlap rendering lifecycle.
@@ -77,6 +107,7 @@ export class FlipFlapRenderer {
   private config: FlipFlapConfig;
   private board: FlapBoard;
   private audioPlayer: FlipSoundPlayer | null;
+  private theme: FlapSurfaceTheme;
 
   private animationFrameId: number | null = null;
   private lastTickTime = 0;
@@ -96,6 +127,7 @@ export class FlipFlapRenderer {
 
     this.config = { ...DEFAULT_FLIPFLAP_CONFIG, ...config };
     this.board = createBoard({ rows: this.config.rows, cols: this.config.cols });
+    this.theme = createFlapSurfaceTheme();
 
     if (this.config.audio) {
       this.audioPlayer = new FlipSoundPlayer(this.config.audio);
@@ -208,6 +240,7 @@ export class FlipFlapRenderer {
 
     // Compute cell dimensions to fill the canvas
     const layout = computeCellLayout(width, height, board.rows, board.cols);
+    this.drawBoardFrame(layout, board.rows, board.cols);
 
     // Draw each cell
     for (let r = 0; r < board.rows; r++) {
@@ -220,16 +253,92 @@ export class FlipFlapRenderer {
     }
   }
 
+  private drawBoardFrame(layout: CellLayout, rows: number, cols: number): void {
+    const ctx = this.ctx;
+    const width = layout.cellWidth * cols + (cols - 1) * CELL_GAP;
+    const height = layout.cellHeight * rows + (rows - 1) * CELL_GAP;
+    const x = layout.offsetX - BOARD_PADDING * 0.55;
+    const y = layout.offsetY - BOARD_PADDING * 0.55;
+    const w = width + BOARD_PADDING * 1.1;
+    const h = height + BOARD_PADDING * 1.1;
+    const radius = Math.max(8, layout.cellHeight * 0.18);
+
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetY = 12;
+    ctx.beginPath();
+    roundedRectPath(ctx, x, y, w, h, radius, radius, radius, radius);
+    const frameGradient = ctx.createLinearGradient(x, y, x, y + h);
+    frameGradient.addColorStop(0, this.theme.frameHighlight);
+    frameGradient.addColorStop(0.12, this.theme.frameInner);
+    frameGradient.addColorStop(1, this.theme.frameOuter);
+    ctx.fillStyle = frameGradient;
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    roundedRectPath(
+      ctx,
+      x + 6,
+      y + 6,
+      w - 12,
+      h - 12,
+      radius * 0.78,
+      radius * 0.78,
+      radius * 0.78,
+      radius * 0.78,
+    );
+    const innerGradient = ctx.createLinearGradient(x, y, x, y + h);
+    innerGradient.addColorStop(0, "rgba(255,255,255,0.04)");
+    innerGradient.addColorStop(1, "rgba(0,0,0,0.22)");
+    ctx.strokeStyle = innerGradient;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   private drawCell(x: number, y: number, w: number, h: number, char: string): void {
     const ctx = this.ctx;
+    const theme = this.theme;
     const radius = h * CORNER_RADIUS_RATIO;
     const halfH = h / 2;
+    const seamHeight = Math.max(1, h * 0.028);
+    const inset = Math.max(1, Math.round(w * 0.028));
+
+    const topGradient = ctx.createLinearGradient(x, y, x, y + halfH);
+    topGradient.addColorStop(0, theme.topHighlight);
+    topGradient.addColorStop(0.18, theme.topBase);
+    topGradient.addColorStop(1, theme.ribShadow);
+
+    const bottomGradient = ctx.createLinearGradient(x, y + halfH, x, y + h);
+    bottomGradient.addColorStop(0, theme.topBase);
+    bottomGradient.addColorStop(0.3, theme.bottomBase);
+    bottomGradient.addColorStop(1, theme.bottomShadow);
 
     // Top half of the flap
     ctx.save();
     ctx.beginPath();
     roundedRectPath(ctx, x, y, w, halfH, radius, radius, 0, 0);
-    ctx.fillStyle = CELL_BG;
+    ctx.fillStyle = topGradient;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.beginPath();
+    roundedRectPath(
+      ctx,
+      x + inset,
+      y + inset,
+      w - inset * 2,
+      halfH - inset * 1.8,
+      radius * 0.65,
+      radius * 0.65,
+      0,
+      0,
+    );
+    ctx.fillStyle = "rgba(255,255,255,0.025)";
     ctx.fill();
     ctx.restore();
 
@@ -237,25 +346,106 @@ export class FlipFlapRenderer {
     ctx.save();
     ctx.beginPath();
     roundedRectPath(ctx, x, y + halfH, w, halfH, 0, 0, radius, radius);
-    ctx.fillStyle = CELL_BG;
+    ctx.fillStyle = bottomGradient;
     ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.28)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.restore();
 
     // Split line — the horizontal gap between halves
-    ctx.fillStyle = SPLIT_LINE_COLOR;
-    ctx.fillRect(x, y + halfH - 0.5, w, 1);
+    const seamGradient = ctx.createLinearGradient(
+      x,
+      y + halfH - seamHeight,
+      x,
+      y + halfH + seamHeight,
+    );
+    seamGradient.addColorStop(0, "rgba(255,255,255,0.06)");
+    seamGradient.addColorStop(0.45, theme.hingeMetal);
+    seamGradient.addColorStop(0.5, theme.hingeShadow);
+    seamGradient.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = seamGradient;
+    ctx.fillRect(x, y + halfH - seamHeight, w, seamHeight * 2);
+
+    const rivetRadius = Math.max(1.1, Math.min(w, h) * 0.035);
+    this.drawRivet(x + w * 0.12, y + halfH, rivetRadius);
+    this.drawRivet(x + w * 0.88, y + halfH, rivetRadius);
 
     // Character — centered in the cell, clipped to avoid overflow
     if (char !== " ") {
-      const fontSize = h * 0.65;
-      ctx.save();
-      ctx.font = `bold ${fontSize}px "Courier New", "Consolas", monospace`;
-      ctx.fillStyle = CHAR_COLOR;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(char, x + w / 2, y + h / 2 + 1);
-      ctx.restore();
+      const fontSize = h * 0.7;
+      this.drawFlapCharacter(char, x, y, w, halfH, fontSize);
     }
+  }
+
+  private drawRivet(x: number, y: number, radius: number): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y + radius * 0.24, radius * 1.12, 0, Math.PI * 2);
+    ctx.fillStyle = this.theme.rivetShadow;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    const rivetGradient = ctx.createRadialGradient(
+      x - radius * 0.35,
+      y - radius * 0.45,
+      radius * 0.2,
+      x,
+      y,
+      radius,
+    );
+    rivetGradient.addColorStop(0, "rgba(255,255,255,0.38)");
+    rivetGradient.addColorStop(0.45, this.theme.rivet);
+    rivetGradient.addColorStop(1, this.theme.hingeShadow);
+    ctx.fillStyle = rivetGradient;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  private drawFlapCharacter(
+    char: string,
+    x: number,
+    y: number,
+    w: number,
+    halfH: number,
+    fontSize: number,
+  ): void {
+    const ctx = this.ctx;
+    const centerX = x + w / 2;
+
+    ctx.save();
+    ctx.font = `600 ${fontSize}px "Arial Narrow", "Helvetica Neue", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.scale(0.92, 1);
+
+    // Top half character with slight wear and reflected light.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x / 0.92, y, w / 0.92, halfH - 0.5);
+    ctx.clip();
+    ctx.fillStyle = "rgba(0,0,0,0.32)";
+    ctx.fillText(char, centerX / 0.92, y + halfH * 0.63);
+    ctx.fillStyle = this.theme.charPrimary;
+    ctx.fillText(char, centerX / 0.92, y + halfH * 0.58);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillText(char, centerX / 0.92, y + halfH * 0.53);
+    ctx.restore();
+
+    // Bottom half is slightly darker and recessed.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x / 0.92, y + halfH, w / 0.92, halfH);
+    ctx.clip();
+    ctx.fillStyle = "rgba(0,0,0,0.38)";
+    ctx.fillText(char, centerX / 0.92, y + halfH + halfH * 0.54);
+    ctx.fillStyle = this.theme.charSecondary;
+    ctx.fillText(char, centerX / 0.92, y + halfH + halfH * 0.48);
+    ctx.restore();
+
+    ctx.restore();
   }
 }
 

@@ -72,7 +72,7 @@ pub struct AppSettings {
     #[serde(default = "default_flipflap_cols")]
     pub flipflap_cols: usize,
 
-    /// Milliseconds between cell advance ticks (default: 30).
+    /// Milliseconds between cell advance ticks (default: 80).
     #[serde(default = "default_flipflap_tick_ms")]
     pub flipflap_tick_ms: u64,
 
@@ -158,7 +158,7 @@ fn default_flipflap_cols() -> usize {
     40
 }
 fn default_flipflap_tick_ms() -> u64 {
-    30
+    80
 }
 fn default_flipflap_rotation_secs() -> u64 {
     20
@@ -358,6 +358,14 @@ mod tests {
         assert!((settings.matrix_spawn_density - 0.5).abs() < f64::EPSILON);
         assert!((settings.matrix_glow_intensity - 12.0).abs() < f64::EPSILON);
         assert_eq!(settings.matrix_tick_ms, 40);
+    }
+
+    #[test]
+    fn test_default_flipflap_settings() {
+        let settings = AppSettings::default();
+        assert_eq!(settings.flipflap_rows, 8);
+        assert_eq!(settings.flipflap_cols, 40);
+        assert_eq!(settings.flipflap_tick_ms, 80);
     }
 
     #[test]
