@@ -232,7 +232,7 @@ describe("spawnDrops", () => {
     spawnDrops(board, 1.0);
 
     for (const column of board.columns) {
-      expect(column.drop?.trailLength ?? 0).toBeGreaterThanOrEqual(8);
+      expect(column.drop?.trailLength ?? 0).toBeGreaterThanOrEqual(28);
     }
   });
 });

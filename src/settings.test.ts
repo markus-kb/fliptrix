@@ -24,10 +24,10 @@ describe("DEFAULT_SETTINGS", () => {
   });
 
   it("has expected Matrix defaults", () => {
-    expect(DEFAULT_SETTINGS.matrix_font_size).toBe(16);
-    expect(DEFAULT_SETTINGS.matrix_spawn_density).toBeCloseTo(0.04);
-    expect(DEFAULT_SETTINGS.matrix_glow_intensity).toBe(6);
-    expect(DEFAULT_SETTINGS.matrix_tick_ms).toBe(50);
+    expect(DEFAULT_SETTINGS.matrix_font_size).toBe(24);
+    expect(DEFAULT_SETTINGS.matrix_spawn_density).toBeCloseTo(0.5);
+    expect(DEFAULT_SETTINGS.matrix_glow_intensity).toBe(12);
+    expect(DEFAULT_SETTINGS.matrix_tick_ms).toBe(40);
     expect(DEFAULT_SETTINGS.matrix_post_rotation_secs).toBe(15);
   });
 

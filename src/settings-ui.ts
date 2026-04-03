@@ -161,12 +161,13 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
               <span class="field-label">Font size (px)</span>
               <input type="number" name="matrix_font_size" min="8" max="48"
                 value="${s.matrix_font_size}" />
+              <span class="field-hint">Default: 24</span>
             </label>
             <label class="field">
               <span class="field-label">Spawn density (0 – 1)</span>
               <input type="number" name="matrix_spawn_density" min="0" max="1" step="0.01"
                 value="${s.matrix_spawn_density}" />
-              <span class="field-hint">Default: 0.04</span>
+              <span class="field-hint">Default: 0.5</span>
             </label>
           </div>
 
@@ -175,12 +176,13 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
               <span class="field-label">Glow intensity (px blur)</span>
               <input type="number" name="matrix_glow_intensity" min="0" max="30"
                 value="${s.matrix_glow_intensity}" />
+              <span class="field-hint">Default: 12</span>
             </label>
             <label class="field">
               <span class="field-label">Tick (ms)</span>
               <input type="number" name="matrix_tick_ms" min="10" max="500"
                 value="${s.matrix_tick_ms}" />
-              <span class="field-hint">Animation speed. Default: 50</span>
+              <span class="field-hint">Animation speed. Default: 40</span>
             </label>
           </div>
 

@@ -39,10 +39,10 @@ export interface MatrixConfig {
 
 /** Sensible defaults — authentic Matrix look without excessive CPU usage. */
 export const DEFAULT_MATRIX_CONFIG: MatrixConfig = {
-  fontSize: 16,
-  spawnDensity: 0.04,
-  glowIntensity: 6,
-  tickIntervalMs: 50,
+  fontSize: 24,
+  spawnDensity: 0.5,
+  glowIntensity: 12,
+  tickIntervalMs: 40,
   postRotationSec: 15,
 };
 
@@ -50,7 +50,7 @@ export const DEFAULT_MATRIX_CONFIG: MatrixConfig = {
 // Layer configuration
 // ---------------------------------------------------------------------------
 
-export type MatrixLayerId = "far" | "mid" | "foreground";
+export type MatrixLayerId = "deep_far" | "far" | "mid" | "near" | "foreground";
 
 export interface MatrixLayerConfig {
   id: MatrixLayerId;
@@ -68,22 +68,40 @@ export function deriveMatrixLayerConfigs(base: MatrixConfig): MatrixLayerConfig[
 
   return [
     {
+      id: "deep_far",
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.52)),
+      alpha: 0.08,
+      compositeBlur: 6.4,
+      glowBlur: Math.max(1.6, glow * 0.95),
+      spawnDensity: clampProbability(base.spawnDensity * 0.08),
+      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 2.6)),
+    },
+    {
       id: "far",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.84)),
-      alpha: 0.16,
-      compositeBlur: 4.2,
-      glowBlur: Math.max(1.2, glow * 0.7),
-      spawnDensity: clampProbability(base.spawnDensity * 0.35),
-      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.7)),
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.68)),
+      alpha: 0.13,
+      compositeBlur: 5.2,
+      glowBlur: Math.max(1.4, glow * 0.82),
+      spawnDensity: clampProbability(base.spawnDensity * 0.14),
+      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 2.15)),
     },
     {
       id: "mid",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 1.06)),
-      alpha: 0.32,
-      compositeBlur: 2.7,
-      glowBlur: Math.max(1.8, glow * 1.1),
-      spawnDensity: clampProbability(base.spawnDensity * 0.6),
-      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.25)),
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.84)),
+      alpha: 0.2,
+      compositeBlur: 4.0,
+      glowBlur: Math.max(2.4, glow * 1.12),
+      spawnDensity: clampProbability(base.spawnDensity * 0.24),
+      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.75)),
+    },
+    {
+      id: "near",
+      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 1.02)),
+      alpha: 0.34,
+      compositeBlur: 2.6,
+      glowBlur: Math.max(3.2, glow * 1.45),
+      spawnDensity: clampProbability(base.spawnDensity * 0.38),
+      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.28)),
     },
     {
       id: "foreground",
@@ -91,8 +109,8 @@ export function deriveMatrixLayerConfigs(base: MatrixConfig): MatrixLayerConfig[
       alpha: 0.96,
       compositeBlur: 0.95,
       glowBlur: glow * 2.35,
-      spawnDensity: clampProbability(base.spawnDensity),
-      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs)),
+      spawnDensity: clampProbability(base.spawnDensity * 0.56),
+      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 0.95)),
     },
   ];
 }
@@ -554,7 +572,7 @@ export class MatrixRenderer {
   private createLayers(): MatrixLayerRuntime[] {
     const layerConfigs = deriveMatrixLayerConfigs(this.config);
 
-    return layerConfigs.map((config) => {
+    return layerConfigs.map((config, index) => {
       const surface = document.createElement("canvas");
       surface.width = this.canvas.width;
       surface.height = this.canvas.height;
@@ -566,6 +584,11 @@ export class MatrixRenderer {
 
       const grid = computeMatrixGrid(surface.width, surface.height, config.fontSize);
       const board = createMatrixBoard(grid.rows, grid.cols);
+      this.warmLayerBoard(
+        board,
+        config.spawnDensity,
+        12 + index * 10 + Math.floor(Math.random() * 28),
+      );
 
       return {
         config,
@@ -578,6 +601,13 @@ export class MatrixRenderer {
         activePacketCols: [],
       };
     });
+  }
+
+  private warmLayerBoard(board: MatrixBoard, spawnDensity: number, ticks: number): void {
+    for (let i = 0; i < ticks; i++) {
+      spawnDrops(board, spawnDensity);
+      advanceMatrix(board);
+    }
   }
 }
 
