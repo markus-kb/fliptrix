@@ -85,6 +85,13 @@ export function cloneDefaultSettings(): AppSettings {
   };
 }
 
+export function withScreensaverMode(settings: AppSettings, mode: ScreensaverMode): AppSettings {
+  return {
+    ...settings,
+    mode,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // IPC helpers
 // ---------------------------------------------------------------------------
@@ -107,6 +114,10 @@ export async function getSettings(): Promise<AppSettings> {
  */
 export async function saveSettings(settings: AppSettings): Promise<void> {
   await invoke("set_settings", { newSettings: settings });
+}
+
+export async function activateScreensaver(): Promise<void> {
+  await invoke("activate_screensaver");
 }
 
 /** Returns whether the autostart entry currently exists. */
