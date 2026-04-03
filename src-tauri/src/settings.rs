@@ -194,6 +194,12 @@ fn default_matrix_truncation_chars() -> usize {
     280
 }
 
+const LEGACY_FLIPFLAP_TICK_MS: u64 = 30;
+const LEGACY_MATRIX_FONT_SIZE: u32 = 16;
+const LEGACY_MATRIX_SPAWN_DENSITY: f64 = 0.04;
+const LEGACY_MATRIX_GLOW_INTENSITY: f64 = 6.0;
+const LEGACY_MATRIX_TICK_MS: u64 = 50;
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -224,6 +230,28 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
+    pub fn upgrade_legacy_defaults(mut self) -> Self {
+        if self.flipflap_rows == 8
+            && self.flipflap_cols == 40
+            && self.flipflap_tick_ms == LEGACY_FLIPFLAP_TICK_MS
+        {
+            self.flipflap_tick_ms = default_flipflap_tick_ms();
+        }
+
+        if self.matrix_font_size == LEGACY_MATRIX_FONT_SIZE
+            && (self.matrix_spawn_density - LEGACY_MATRIX_SPAWN_DENSITY).abs() < f64::EPSILON
+            && (self.matrix_glow_intensity - LEGACY_MATRIX_GLOW_INTENSITY).abs() < f64::EPSILON
+            && self.matrix_tick_ms == LEGACY_MATRIX_TICK_MS
+        {
+            self.matrix_font_size = default_matrix_font_size();
+            self.matrix_spawn_density = default_matrix_spawn_density();
+            self.matrix_glow_intensity = default_matrix_glow_intensity();
+            self.matrix_tick_ms = default_matrix_tick_ms();
+        }
+
+        self
+    }
+
     fn mode_data_config(
         accounts: &[String],
         search_query: &str,
@@ -515,5 +543,24 @@ mod tests {
         assert_eq!(settings.matrix_font_size, 24);
         assert_eq!(settings.flipflap_time_window_hours, 24);
         assert_eq!(settings.matrix_truncation_chars, 280);
+    }
+
+    #[test]
+    fn test_upgrade_legacy_defaults_updates_old_renderer_defaults() {
+        let upgraded = AppSettings {
+            flipflap_tick_ms: 30,
+            matrix_font_size: 16,
+            matrix_spawn_density: 0.04,
+            matrix_glow_intensity: 6.0,
+            matrix_tick_ms: 50,
+            ..AppSettings::default()
+        }
+        .upgrade_legacy_defaults();
+
+        assert_eq!(upgraded.flipflap_tick_ms, 80);
+        assert_eq!(upgraded.matrix_font_size, 24);
+        assert!((upgraded.matrix_spawn_density - 0.5).abs() < f64::EPSILON);
+        assert!((upgraded.matrix_glow_intensity - 12.0).abs() < f64::EPSILON);
+        assert_eq!(upgraded.matrix_tick_ms, 40);
     }
 }
