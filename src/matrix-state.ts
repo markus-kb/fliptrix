@@ -199,7 +199,7 @@ const MAX_TRAIL = 84;
 /** Default number of ticks between drop moves (base speed). */
 const BASE_SPEED = 2;
 /** Speed variation ± ticks around BASE_SPEED. */
-const SPEED_VARIATION = 2;
+const SPEED_VARIATION = 1;
 
 /**
  * Most columns stay at baseline brightness; a smaller fraction flare brighter.

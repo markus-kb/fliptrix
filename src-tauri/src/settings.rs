@@ -117,6 +117,10 @@ pub struct AppSettings {
     #[serde(default = "default_matrix_tick_ms")]
     pub matrix_tick_ms: u64,
 
+    /// Number of background rain layers to render behind the foreground (default: 1).
+    #[serde(default = "default_matrix_background_layers")]
+    pub matrix_background_layers: u8,
+
     /// Seconds before rotating to the next post as a data packet (default: 15).
     #[serde(default = "default_matrix_post_rotation_secs")]
     pub matrix_post_rotation_secs: u64,
@@ -184,6 +188,9 @@ fn default_matrix_glow_intensity() -> f64 {
 fn default_matrix_tick_ms() -> u64 {
     40
 }
+fn default_matrix_background_layers() -> u8 {
+    1
+}
 fn default_matrix_post_rotation_secs() -> u64 {
     15
 }
@@ -220,6 +227,7 @@ impl Default for AppSettings {
             matrix_spawn_density: default_matrix_spawn_density(),
             matrix_glow_intensity: default_matrix_glow_intensity(),
             matrix_tick_ms: default_matrix_tick_ms(),
+            matrix_background_layers: default_matrix_background_layers(),
             matrix_post_rotation_secs: default_matrix_post_rotation_secs(),
             matrix_accounts: Vec::new(),
             matrix_search_query: String::new(),
@@ -338,6 +346,9 @@ impl AppSettings {
         if self.matrix_tick_ms == 0 {
             return Err("matrix_tick_ms must be > 0".into());
         }
+        if self.matrix_background_layers > 3 {
+            return Err("matrix_background_layers must be 0–3".into());
+        }
         if self.matrix_post_rotation_secs == 0 {
             return Err("matrix_post_rotation_secs must be > 0".into());
         }
@@ -386,6 +397,7 @@ mod tests {
         assert!((settings.matrix_spawn_density - 0.5).abs() < f64::EPSILON);
         assert!((settings.matrix_glow_intensity - 12.0).abs() < f64::EPSILON);
         assert_eq!(settings.matrix_tick_ms, 40);
+        assert_eq!(settings.matrix_background_layers, 1);
     }
 
     #[test]
@@ -499,6 +511,13 @@ mod tests {
     fn test_validate_rejects_zero_matrix_truncation_chars() {
         let mut s = AppSettings::default();
         s.matrix_truncation_chars = 0;
+        assert!(s.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_rejects_too_many_matrix_background_layers() {
+        let mut s = AppSettings::default();
+        s.matrix_background_layers = 4;
         assert!(s.validate().is_err());
     }
 

@@ -33,6 +33,8 @@ export interface MatrixConfig {
   glowIntensity: number;
   /** Milliseconds between board state ticks. Lower = faster rain. */
   tickIntervalMs: number;
+  /** Number of background layers to render behind the foreground (0-3). */
+  backgroundLayerCount: number;
   /** Seconds between injecting the next post as a data packet. */
   postRotationSec: number;
 }
@@ -43,6 +45,7 @@ export const DEFAULT_MATRIX_CONFIG: MatrixConfig = {
   spawnDensity: 0.5,
   glowIntensity: 12,
   tickIntervalMs: 40,
+  backgroundLayerCount: 1,
   postRotationSec: 15,
 };
 
@@ -50,7 +53,7 @@ export const DEFAULT_MATRIX_CONFIG: MatrixConfig = {
 // Layer configuration
 // ---------------------------------------------------------------------------
 
-export type MatrixLayerId = "deep_far" | "far" | "mid" | "near" | "foreground";
+export type MatrixLayerId = "far" | "mid" | "near" | "foreground";
 
 export interface MatrixLayerConfig {
   id: MatrixLayerId;
@@ -62,20 +65,13 @@ export interface MatrixLayerConfig {
   tickIntervalMs: number;
 }
 
+const MAX_MATRIX_BACKGROUND_LAYERS = 3;
+
 export function deriveMatrixLayerConfigs(base: MatrixConfig): MatrixLayerConfig[] {
   const glow = Math.max(0, base.glowIntensity);
   const minFontSize = 8;
 
-  return [
-    {
-      id: "deep_far",
-      fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.52)),
-      alpha: 0.08,
-      compositeBlur: 6.4,
-      glowBlur: Math.max(1.6, glow * 0.95),
-      spawnDensity: clampProbability(base.spawnDensity * 0.08),
-      tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 2.6)),
-    },
+  const backgroundLayers: MatrixLayerConfig[] = [
     {
       id: "far",
       fontSize: Math.max(minFontSize, Math.round(base.fontSize * 0.68)),
@@ -103,6 +99,12 @@ export function deriveMatrixLayerConfigs(base: MatrixConfig): MatrixLayerConfig[
       spawnDensity: clampProbability(base.spawnDensity * 0.38),
       tickIntervalMs: Math.max(1, Math.round(base.tickIntervalMs * 1.28)),
     },
+  ];
+
+  const enabledBackgroundLayers = clampBackgroundLayerCount(base.backgroundLayerCount);
+
+  return [
+    ...backgroundLayers.slice(MAX_MATRIX_BACKGROUND_LAYERS - enabledBackgroundLayers),
     {
       id: "foreground",
       fontSize: Math.max(minFontSize, Math.round(base.fontSize * 1.22)),
@@ -117,6 +119,10 @@ export function deriveMatrixLayerConfigs(base: MatrixConfig): MatrixLayerConfig[
 
 function clampProbability(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+function clampBackgroundLayerCount(value: number): number {
+  return Math.min(MAX_MATRIX_BACKGROUND_LAYERS, Math.max(0, Math.round(value)));
 }
 
 // ---------------------------------------------------------------------------
