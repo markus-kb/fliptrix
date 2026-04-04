@@ -420,6 +420,7 @@ function readFormValues(form: HTMLFormElement, fallback: AppSettings): AppSettin
     matrix_spawn_density: num("matrix_spawn_density", fallback.matrix_spawn_density),
     matrix_glow_intensity: num("matrix_glow_intensity", fallback.matrix_glow_intensity),
     matrix_tick_ms: num("matrix_tick_ms", fallback.matrix_tick_ms),
+    matrix_background_layers: fallback.matrix_background_layers,
     matrix_post_rotation_secs: num("matrix_post_rotation_secs", fallback.matrix_post_rotation_secs),
     matrix_accounts: parseAccountsField(
       str("matrix_accounts", formatAccountsField(fallback.matrix_accounts)),
@@ -449,6 +450,7 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     matrix_spawn_density: s.matrix_spawn_density,
     matrix_glow_intensity: s.matrix_glow_intensity,
     matrix_tick_ms: s.matrix_tick_ms,
+    matrix_background_layers: s.matrix_background_layers,
     matrix_post_rotation_secs: s.matrix_post_rotation_secs,
     matrix_search_query: s.matrix_search_query,
     matrix_time_window_hours: s.matrix_time_window_hours,

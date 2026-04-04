@@ -44,6 +44,7 @@ export interface AppSettings {
   matrix_spawn_density: number;
   matrix_glow_intensity: number;
   matrix_tick_ms: number;
+  matrix_background_layers: number;
   matrix_post_rotation_secs: number;
   matrix_accounts: string[];
   matrix_search_query: string;
@@ -70,6 +71,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   matrix_spawn_density: 0.5,
   matrix_glow_intensity: 12,
   matrix_tick_ms: 40,
+  matrix_background_layers: 1,
   matrix_post_rotation_secs: 15,
   matrix_accounts: [],
   matrix_search_query: "",

@@ -28,6 +28,7 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.matrix_spawn_density).toBeCloseTo(0.5);
     expect(DEFAULT_SETTINGS.matrix_glow_intensity).toBe(12);
     expect(DEFAULT_SETTINGS.matrix_tick_ms).toBe(40);
+    expect(DEFAULT_SETTINGS.matrix_background_layers).toBe(1);
     expect(DEFAULT_SETTINGS.matrix_post_rotation_secs).toBe(15);
   });
 

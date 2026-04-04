@@ -157,6 +157,7 @@ async function startMatrixRenderer(
     spawnDensity: settings.matrix_spawn_density,
     glowIntensity: settings.matrix_glow_intensity,
     tickIntervalMs: settings.matrix_tick_ms,
+    backgroundLayerCount: settings.matrix_background_layers,
     postRotationSec: settings.matrix_post_rotation_secs,
   });
 
