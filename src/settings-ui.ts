@@ -257,17 +257,17 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
             </label>
 
             <label class="field">
-              <span class="field-label">FlipFlap truncation (chars)</span>
-              <input type="number" name="flipflap_truncation_chars" min="1" max="2000"
-                value="${s.flipflap_truncation_chars}" />
+              <span class="field-label">Matrix time window (hours)</span>
+              <input type="number" name="matrix_time_window_hours" min="1" max="720"
+                value="${s.matrix_time_window_hours}" />
             </label>
           </div>
 
           <div class="field-row">
             <label class="field">
-              <span class="field-label">Matrix time window (hours)</span>
-              <input type="number" name="matrix_time_window_hours" min="1" max="720"
-                value="${s.matrix_time_window_hours}" />
+              <span class="field-label">FlipFlap truncation (chars)</span>
+              <input type="number" name="flipflap_truncation_chars" min="1" max="2000"
+                value="${s.flipflap_truncation_chars}" />
             </label>
 
             <label class="field">
@@ -292,9 +292,12 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
           </span>
         </fieldset>
 
-        <div class="settings-actions">
-          <button type="submit" class="btn btn-primary">Save settings</button>
-          <button type="button" id="reset-btn" class="btn btn-ghost">Reset to defaults</button>
+        <div class="settings-actions-wrap">
+          <div class="settings-actions">
+            <button type="submit" class="btn btn-primary">Save settings</button>
+            <button type="button" id="reset-btn" class="btn btn-ghost">Reset to defaults</button>
+          </div>
+          <div id="settings-save-feedback" class="settings-feedback settings-feedback--inline" aria-live="polite" hidden></div>
         </div>
       </form>
     </section>
@@ -307,8 +310,11 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
 
 function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   const form = root.querySelector<HTMLFormElement>("#settings-form");
-  const feedback = root.querySelector<HTMLElement>("#settings-feedback");
-  if (!form || !feedback) return;
+  const previewFeedback = root.querySelector<HTMLElement>("#settings-feedback");
+  if (!form || !previewFeedback) return;
+
+  const saveFeedback =
+    root.querySelector<HTMLElement>("#settings-save-feedback") ?? previewFeedback;
 
   // Show/hide mode-switch-interval based on selected mode.
   const modeSelect = form.querySelector<HTMLSelectElement>('[name="mode"]');
@@ -333,7 +339,7 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   wireRefreshPosts(root);
 
   // Manual mode test buttons.
-  wirePreviewButtons(root, form, feedback, initialSettings);
+  wirePreviewButtons(root, form, previewFeedback, saveFeedback, initialSettings);
 
   // Load API key status on startup.
   loadApiKeyStatus(root);
@@ -342,7 +348,8 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   const resetBtn = root.querySelector<HTMLButtonElement>("#reset-btn");
   resetBtn?.addEventListener("click", () => {
     populateForm(form, cloneDefaultSettings());
-    showFeedback(feedback, "info", "Defaults loaded — click Save to apply.");
+    previewFeedback.hidden = true;
+    showFeedback(saveFeedback, "info", "Defaults loaded — click Save to apply.");
   });
 
   // Main form submit.
@@ -351,10 +358,12 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
     const settings = readFormValues(form, initialSettings);
     try {
       await saveSettings(settings);
-      showFeedback(feedback, "success", "Settings saved.");
+      previewFeedback.hidden = true;
+      showFeedback(saveFeedback, "success", "Settings saved.");
     } catch (err) {
+      previewFeedback.hidden = true;
       showFeedback(
-        feedback,
+        saveFeedback,
         "error",
         `Failed to save: ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -578,7 +587,8 @@ function wireRefreshPosts(root: HTMLElement): void {
 function wirePreviewButtons(
   root: HTMLElement,
   form: HTMLFormElement,
-  feedback: HTMLElement,
+  previewFeedback: HTMLElement,
+  saveFeedback: HTMLElement,
   fallback: AppSettings,
 ): void {
   const previewButtons: Array<[string, AppSettings["mode"], string]> = [
@@ -605,10 +615,12 @@ function wirePreviewButtons(
         await saveSettings(settings);
         populateForm(form, settings);
         await activateScreensaver();
-        showFeedback(feedback, "info", successMessage);
+        saveFeedback.hidden = true;
+        showFeedback(previewFeedback, "info", successMessage);
       } catch (err) {
+        saveFeedback.hidden = true;
         showFeedback(
-          feedback,
+          previewFeedback,
           "error",
           `Failed to start test: ${err instanceof Error ? err.message : String(err)}`,
         );
