@@ -1,5 +1,12 @@
 import { waitFor } from "./runtime.mjs";
 
+function isMissingWindowError(error) {
+  return (
+    error instanceof Error &&
+    (error.message.includes("no such window") || error.message.includes("invalid session id"))
+  );
+}
+
 export async function setFieldValue(browser, selector, value) {
   const field = await browser.$(selector);
   await field.waitForDisplayed({ timeout: 15_000 });
@@ -54,10 +61,7 @@ export async function findWindowHandleWithSelector(browser, selector, timeoutMs 
           return handle;
         }
       } catch (error) {
-        if (
-          error instanceof Error &&
-          (error.message.includes("no such window") || error.message.includes("invalid session id"))
-        ) {
+        if (isMissingWindowError(error)) {
           continue;
         }
         throw error;
@@ -86,10 +90,7 @@ export async function waitForNoWindowWithSelector(browser, selector, timeoutMs =
           break;
         }
       } catch (error) {
-        if (
-          error instanceof Error &&
-          (error.message.includes("no such window") || error.message.includes("invalid session id"))
-        ) {
+        if (isMissingWindowError(error)) {
           continue;
         }
         throw error;
@@ -107,27 +108,41 @@ export async function waitForNoWindowWithSelector(browser, selector, timeoutMs =
 }
 
 export async function moveMouseBeyondDeadZone(browser) {
-  await browser.performActions([
-    {
-      type: "pointer",
-      id: "mouse",
-      parameters: { pointerType: "mouse" },
-      actions: [
-        { type: "pointerMove", duration: 0, x: 20, y: 20, origin: "viewport" },
-        { type: "pause", duration: 50 },
-        { type: "pointerMove", duration: 0, x: 220, y: 220, origin: "viewport" },
-      ],
-    },
-  ]);
+  try {
+    await browser.performActions([
+      {
+        type: "pointer",
+        id: "mouse",
+        parameters: { pointerType: "mouse" },
+        actions: [
+          { type: "pointerMove", duration: 0, x: 20, y: 20, origin: "viewport" },
+          { type: "pause", duration: 50 },
+          { type: "pointerMove", duration: 0, x: 220, y: 220, origin: "viewport" },
+        ],
+      },
+    ]);
+  } catch (error) {
+    if (!isMissingWindowError(error)) {
+      throw error;
+    }
+  }
+
   try {
     await browser.releaseActions();
   } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message.includes("no such window") || error.message.includes("invalid session id"))
-    ) {
+    if (isMissingWindowError(error)) {
       return;
     }
     throw error;
+  }
+}
+
+export async function pressEscape(browser) {
+  try {
+    await browser.keys("Escape");
+  } catch (error) {
+    if (!isMissingWindowError(error)) {
+      throw error;
+    }
   }
 }

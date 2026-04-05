@@ -5,6 +5,7 @@ import {
   clickButton,
   findWindowHandleWithSelector,
   moveMouseBeyondDeadZone,
+  pressEscape,
   waitForNoWindowWithSelector,
 } from "../support/ui.mjs";
 
@@ -29,7 +30,7 @@ test("preview test opens screensaver and keyboard input deactivates it", async (
       20_000,
     );
     await browser.switchToWindow(screensaverHandle);
-    await browser.keys("Escape");
+    await pressEscape(browser);
 
     await waitForNoWindowWithSelector(browser, "#screensaver-canvas", 20_000);
   } finally {
