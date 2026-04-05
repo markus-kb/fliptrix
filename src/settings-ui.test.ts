@@ -106,6 +106,55 @@ describe("initSettingsUi", () => {
     ]);
   });
 
+  it("X data left column is always FlipFlap, right column is always Matrix", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const xDataPanel = Array.from(root.querySelectorAll<HTMLElement>("fieldset.panel")).find(
+      (panel) => panel.querySelector("legend")?.textContent?.trim() === "X data",
+    );
+    if (!xDataPanel) throw new Error("missing x data panel");
+
+    const rows = xDataPanel.querySelectorAll<HTMLElement>(".field-row");
+    for (const row of rows) {
+      const fields = row.querySelectorAll<HTMLElement>(".field");
+      expect(fields).toHaveLength(2);
+
+      const leftLabel =
+        fields[0].querySelector<HTMLElement>(".field-label")?.textContent?.trim() ?? "";
+      const rightLabel =
+        fields[1].querySelector<HTMLElement>(".field-label")?.textContent?.trim() ?? "";
+
+      expect(leftLabel).toContain("FlipFlap");
+      expect(rightLabel).toContain("Matrix");
+    }
+  });
+
+  it("X data two-column fields are never unpaired in a field-row", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const xDataPanel = Array.from(root.querySelectorAll<HTMLElement>("fieldset.panel")).find(
+      (panel) => panel.querySelector("legend")?.textContent?.trim() === "X data",
+    );
+    if (!xDataPanel) throw new Error("missing x data panel");
+
+    const rows = xDataPanel.querySelectorAll<HTMLElement>(".field-row");
+
+    // Every field-row must have exactly 2 children — no unpaired fields
+    for (const row of rows) {
+      expect(row.querySelectorAll<HTMLElement>(".field")).toHaveLength(2);
+    }
+
+    // Total two-column field-labels must be even (8 = 4 rows × 2)
+    const twoColumnLabels = xDataPanel.querySelectorAll<HTMLElement>(".field-row .field-label");
+    expect(twoColumnLabels.length % 2).toBe(0);
+  });
+
   it("shows save confirmation near action buttons", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");
