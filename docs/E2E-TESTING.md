@@ -51,8 +51,10 @@ You can override the binary path with `FLIPTRIX_E2E_APP`.
 
 ```bash
 corepack pnpm e2e:generic
+corepack pnpm e2e:generic:headless
 corepack pnpm e2e:windows
 corepack pnpm e2e:linux
+corepack pnpm e2e:linux:headless
 ```
 
 Verification commands:
@@ -60,6 +62,7 @@ Verification commands:
 ```bash
 corepack pnpm verify:windows
 corepack pnpm verify:linux
+corepack pnpm verify:linux:headless
 ```
 
 ## Environment Variables
@@ -102,6 +105,12 @@ If that happens, the next steps are:
 
 ```bash
 xvfb-run -a corepack pnpm e2e:generic
+```
+
+For full CI-style verification on headless Linux:
+
+```bash
+corepack pnpm verify:linux:headless
 ```
 
 4. If your WebKit driver lives outside `/usr/bin/WebKitWebDriver`, set it explicitly:

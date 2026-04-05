@@ -15,10 +15,13 @@
     "test:watch": "vitest",
     "tauri": "tauri",
     "e2e:generic": "node --test --test-concurrency=1 e2e/generic/**/*.test.mjs",
+    "e2e:generic:headless": "xvfb-run -a corepack pnpm e2e:generic",
     "e2e:windows": "node --test --test-concurrency=1 e2e/windows/**/*.test.mjs",
     "e2e:linux": "node --test --test-concurrency=1 e2e/linux/**/*.test.mjs",
+    "e2e:linux:headless": "xvfb-run -a corepack pnpm e2e:linux",
     "verify:windows": "corepack pnpm test && cargo test --manifest-path src-tauri/Cargo.toml && corepack pnpm e2e:generic && corepack pnpm e2e:windows",
-    "verify:linux": "corepack pnpm test && cargo test --manifest-path src-tauri/Cargo.toml && corepack pnpm e2e:generic && corepack pnpm e2e:linux"
+    "verify:linux": "corepack pnpm test && cargo test --manifest-path src-tauri/Cargo.toml && corepack pnpm e2e:generic && corepack pnpm e2e:linux",
+    "verify:linux:headless": "corepack pnpm test && cargo test --manifest-path src-tauri/Cargo.toml && corepack pnpm tauri build --debug --no-bundle && corepack pnpm e2e:generic:headless && corepack pnpm e2e:linux:headless"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
