@@ -28,8 +28,45 @@ use windowing::MonitorInfo;
 const STORE_KEY_BEARER_TOKEN: &str = "bearer_token";
 const STORE_KEY_APP_SETTINGS: &str = "app_settings";
 
+const STORE_FILE_ENV: &str = "FLIPTRIX_STORE_FILE";
+const APP_DATA_DIR_ENV: &str = "FLIPTRIX_APP_DATA_DIR";
+
 /// Tauri app identifier — must match `tauri.conf.json` → `identifier`.
 const APP_ID: &str = "com.fliptrix.desktop";
+
+fn store_file_name() -> String {
+    match std::env::var(STORE_FILE_ENV) {
+        Ok(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                "store.json".to_string()
+            } else {
+                trimmed.to_string()
+            }
+        }
+        Err(_) => "store.json".to_string(),
+    }
+}
+
+fn resolve_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    if let Ok(override_dir) = std::env::var(APP_DATA_DIR_ENV) {
+        let trimmed = override_dir.trim();
+        if !trimmed.is_empty() {
+            let path = std::path::PathBuf::from(trimmed);
+            std::fs::create_dir_all(&path)
+                .map_err(|e| format!("failed to create e2e app data dir '{}': {e}", path.display()))?;
+            return Ok(path);
+        }
+    }
+
+    let path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("failed to resolve app data dir: {e}"))?;
+    std::fs::create_dir_all(&path)
+        .map_err(|e| format!("failed to create app data dir '{}': {e}", path.display()))?;
+    Ok(path)
+}
 
 // ---------------------------------------------------------------------------
 // Shared state managed by Tauri
@@ -202,8 +239,9 @@ fn get_dead_zone_px(state: tauri::State<'_, AppState>) -> f64 {
 #[tauri::command]
 async fn set_api_key(app: AppHandle, bearer_token: String) -> Result<(), String> {
     let state = app.state::<AppState>();
+    let store_file = store_file_name();
     let store = app
-        .store("store.json")
+        .store(store_file.as_str())
         .map_err(|e| format!("failed to open store: {e}"))?;
 
     if bearer_token.trim().is_empty() {
@@ -373,8 +411,9 @@ fn is_cache_fresh(state: tauri::State<'_, AppState>, mode: String) -> Result<boo
 /// and after any setting change to keep its UI in sync.
 #[tauri::command]
 async fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
+    let store_file = store_file_name();
     let store = app
-        .store("store.json")
+        .store(store_file.as_str())
         .map_err(|e| format!("failed to open store: {e}"))?;
 
     match store.get(STORE_KEY_APP_SETTINGS) {
@@ -394,8 +433,9 @@ async fn set_settings(app: AppHandle, new_settings: AppSettings) -> Result<(), S
         .validate()
         .map_err(|e| format!("invalid settings: {e}"))?;
 
+    let store_file = store_file_name();
     let store = app
-        .store("store.json")
+        .store(store_file.as_str())
         .map_err(|e| format!("failed to open store: {e}"))?;
 
     let value = serde_json::to_value(&new_settings)
@@ -554,7 +594,8 @@ fn start_idle_poller(app: &AppHandle, poll_interval: Duration) {
 /// Called during app setup so the client is available immediately without
 /// the user having to re-enter their key after every restart.
 fn restore_api_client_from_store(app: &AppHandle) -> Option<XApiClient> {
-    let store = match app.store("store.json") {
+    let store_file = store_file_name();
+    let store = match app.store(store_file.as_str()) {
         Ok(s) => s,
         Err(e) => {
             log::warn!("could not open store during startup: {e}");
@@ -635,19 +676,17 @@ pub fn run() {
         ])
         .setup(move |app| {
             // Resolve the app data directory for cache file I/O.
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .map_err(|e| format!("failed to resolve app data dir: {e}"))?;
+            let app_data_dir = resolve_app_data_dir(app.handle())?;
 
             // Restore the API client from a previously stored bearer token.
             let api_client = restore_api_client_from_store(app.handle());
 
             // Load persisted settings, falling back to defaults.
             let stored_settings: AppSettings = {
+                let store_file = store_file_name();
                 let store = app
                     .handle()
-                    .store("store.json")
+                    .store(store_file.as_str())
                     .map_err(|e| format!("failed to open store: {e}"))?;
                 match store.get(STORE_KEY_APP_SETTINGS) {
                     Some(v) => serde_json::from_value::<AppSettings>(v)
