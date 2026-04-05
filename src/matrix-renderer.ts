@@ -210,7 +210,7 @@ const PACKET_TIER = 7;
 const TIER_BRIGHTNESS_SAMPLES: readonly number[] = [
   0.97, // tier 0 — head (> 0.95)
   0.85, // tier 1 — bright trail (> 0.78)
-  0.7, // tier 2 — mid-bright trail (> 0.62)
+  0.70, // tier 2 — mid-bright trail (> 0.62)
   0.55, // tier 3 — mid trail (> 0.42)
   0.35, // tier 4 — dim-mid trail (> 0.24)
   0.18, // tier 5 — dim trail (> 0.12)
@@ -415,38 +415,20 @@ class GlyphAtlas {
         scratchCtx.fillText(chars[ci], scratchW / 2, 2);
         ctx.drawImage(
           scratch,
-          0,
-          0,
-          scratchW,
-          scratchH,
-          ci * this.cellW,
-          tier * this.cellH,
-          this.cellW,
-          this.cellH,
+          0, 0, scratchW, scratchH,
+          ci * this.cellW, tier * this.cellH, this.cellW, this.cellH,
         );
       }
     }
   }
 
   /** Blit a pre-rendered glyph cell onto ctx at (dstX, dstY). */
-  blit(
-    ctx: CanvasRenderingContext2D,
-    char: string,
-    tier: number,
-    dstX: number,
-    dstY: number,
-  ): void {
+  blit(ctx: CanvasRenderingContext2D, char: string, tier: number, dstX: number, dstY: number): void {
     const ci = this.charIndex.get(char) ?? 0;
     ctx.drawImage(
       this.canvas,
-      ci * this.cellW,
-      tier * this.cellH,
-      this.cellW,
-      this.cellH,
-      dstX,
-      dstY,
-      this.cellW,
-      this.cellH,
+      ci * this.cellW, tier * this.cellH, this.cellW, this.cellH,
+      dstX, dstY, this.cellW, this.cellH,
     );
   }
 }
