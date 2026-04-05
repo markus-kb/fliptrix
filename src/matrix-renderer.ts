@@ -15,6 +15,7 @@ import {
   createMatrixBoard,
   getCellAt,
   injectDataPacket,
+  MATRIX_CHARS,
   type MatrixBoard,
   spawnDrops,
 } from "./matrix-state";
@@ -179,6 +180,7 @@ interface MatrixLayerRuntime {
   grid: MatrixGrid;
   surface: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
+  atlas: GlyphAtlas;
   lastTickTime: number;
   lastPostRotationTime: number;
   activePacketCols: number[];
@@ -193,14 +195,249 @@ interface GlyphStyle {
 }
 
 // ---------------------------------------------------------------------------
+// Brightness tiers
+// ---------------------------------------------------------------------------
+
+/** Total atlas rows: 7 brightness tiers + 1 packet tier. */
+const TIER_COUNT = 8;
+const PACKET_TIER = 7;
+
+/**
+ * Representative brightness values used when pre-rendering each tier into the
+ * glyph atlas. Each value falls within its tier's brightness range so that
+ * glyphStyle() returns the correct colour set.
+ */
+const TIER_BRIGHTNESS_SAMPLES: readonly number[] = [
+  0.97, // tier 0 — head (> 0.95)
+  0.85, // tier 1 — bright trail (> 0.78)
+  0.70, // tier 2 — mid-bright trail (> 0.62)
+  0.55, // tier 3 — mid trail (> 0.42)
+  0.35, // tier 4 — dim-mid trail (> 0.24)
+  0.18, // tier 5 — dim trail (> 0.12)
+  0.05, // tier 6 — void/dark (≤ 0.12)
+];
+
+function getBrightnessTier(brightness: number, isPacket: boolean): number {
+  if (isPacket) return PACKET_TIER;
+  if (brightness > 0.95) return 0;
+  if (brightness > 0.78) return 1;
+  if (brightness > 0.62) return 2;
+  if (brightness > 0.42) return 3;
+  if (brightness > 0.24) return 4;
+  if (brightness > 0.12) return 5;
+  return 6;
+}
+
+// ---------------------------------------------------------------------------
+// Glyph style helpers (module-level so GlyphAtlas can use them at build time)
+// ---------------------------------------------------------------------------
+
+function applyGlowBoost(style: GlyphStyle, glowBoost: number): GlyphStyle {
+  if (glowBoost <= 1) return style;
+  return {
+    ...style,
+    coreAlpha: Math.min(1, style.coreAlpha * (0.94 + glowBoost * 0.12)),
+    glowAlpha: Math.min(1, style.glowAlpha * (0.82 + glowBoost * 0.36)),
+    glowBlur: style.glowBlur * (0.9 + glowBoost * 0.24),
+  };
+}
+
+function glyphStyle(
+  config: MatrixLayerConfig,
+  brightness: number,
+  isPacket: boolean,
+  glowBoost: number,
+): GlyphStyle {
+  const isForeground = config.id === "foreground";
+  const effectiveGlowBoost = isPacket ? 1 : glowBoost;
+
+  if (isPacket) {
+    return {
+      coreRgb: PACKET_RGB,
+      coreAlpha: isForeground ? 0.9 : 0.7,
+      glowRgb: PACKET_RGB,
+      glowAlpha: isForeground ? 0.42 : 0.18,
+      glowBlur: isForeground ? config.glowBlur * 1.35 : config.glowBlur * 0.7,
+    };
+  }
+
+  if (brightness > 0.95) {
+    return applyGlowBoost(
+      {
+        coreRgb: HEAD_RGB,
+        coreAlpha: 0.86,
+        glowRgb: HEAD_RGB,
+        glowAlpha: isForeground ? 0.72 : 0.3,
+        glowBlur: isForeground ? config.glowBlur * 1.05 : config.glowBlur * 0.72,
+      },
+      effectiveGlowBoost,
+    );
+  }
+  if (brightness > 0.78) {
+    return applyGlowBoost(
+      {
+        coreRgb: MATRIX_GREEN_PALETTE[6],
+        coreAlpha: 0.74,
+        glowRgb: MATRIX_GREEN_PALETTE[6],
+        glowAlpha: isForeground ? 0.48 : 0.18,
+        glowBlur: isForeground ? config.glowBlur * 0.95 : config.glowBlur * 0.55,
+      },
+      effectiveGlowBoost,
+    );
+  }
+  if (brightness > 0.62) {
+    return applyGlowBoost(
+      {
+        coreRgb: TRAIL_BRIGHT_RGB,
+        coreAlpha: 0.64,
+        glowRgb: TRAIL_BRIGHT_RGB,
+        glowAlpha: isForeground ? 0.4 : 0.14,
+        glowBlur: isForeground ? config.glowBlur * 0.82 : config.glowBlur * 0.45,
+      },
+      effectiveGlowBoost,
+    );
+  }
+  if (brightness > 0.42) {
+    return applyGlowBoost(
+      {
+        coreRgb: TRAIL_HIGH_RGB,
+        coreAlpha: 0.54,
+        glowRgb: TRAIL_HIGH_RGB,
+        glowAlpha: isForeground ? 0.3 : 0.1,
+        glowBlur: isForeground ? config.glowBlur * 0.68 : config.glowBlur * 0.36,
+      },
+      effectiveGlowBoost,
+    );
+  }
+  if (brightness > 0.24) {
+    return applyGlowBoost(
+      {
+        coreRgb: TRAIL_MID_RGB,
+        coreAlpha: 0.46,
+        glowRgb: TRAIL_MID_RGB,
+        glowAlpha: isForeground ? 0.2 : 0.05,
+        glowBlur: isForeground ? config.glowBlur * 0.52 : config.glowBlur * 0.22,
+      },
+      effectiveGlowBoost,
+    );
+  }
+  if (brightness > 0.12) {
+    return applyGlowBoost(
+      {
+        coreRgb: TRAIL_DIM_RGB,
+        coreAlpha: 0.34,
+        glowRgb: TRAIL_DIM_RGB,
+        glowAlpha: isForeground ? 0.12 : 0.03,
+        glowBlur: isForeground ? config.glowBlur * 0.36 : config.glowBlur * 0.12,
+      },
+      effectiveGlowBoost,
+    );
+  }
+  return {
+    coreRgb: TRAIL_VOID_RGB,
+    coreAlpha: 0.24,
+    glowRgb: TRAIL_VOID_RGB,
+    glowAlpha: 0,
+    glowBlur: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Glyph atlas
+// ---------------------------------------------------------------------------
+
+/**
+ * Pre-rendered sprite sheet for all glyph/tier combinations.
+ *
+ * Layout: columns = characters, rows = brightness tiers (0-6) + packet (7).
+ * Each cell is rendered once at construction time using the same pixelation
+ * pipeline that drawPixelatedCore used per-frame. At draw time a single
+ * drawImage call blits the pre-computed cell — no scratch canvas, no
+ * per-frame fillText for the core.
+ *
+ * Includes MATRIX_CHARS plus all printable ASCII so data-packet text is
+ * covered without a fallback path.
+ */
+class GlyphAtlas {
+  readonly canvas: HTMLCanvasElement;
+  /** Width of one atlas cell == Math.round(fontSize * 0.98). */
+  readonly cellW: number;
+  /** Height of one atlas cell == Math.round(fontSize * 1.24). */
+  readonly cellH: number;
+  private readonly charIndex: ReadonlyMap<string, number>;
+
+  constructor(config: MatrixLayerConfig) {
+    const fontSize = config.fontSize;
+    this.cellW = Math.max(1, Math.round(fontSize * 0.98));
+    this.cellH = Math.max(1, Math.round(fontSize * 1.24));
+
+    // Build deduplicated character set: Matrix chars + printable ASCII (for data packets).
+    const charSet = new Set<string>(MATRIX_CHARS);
+    for (let code = 32; code < 127; code++) charSet.add(String.fromCharCode(code));
+    const chars = [...charSet];
+
+    const idx = new Map<string, number>();
+    chars.forEach((c, i) => idx.set(c, i));
+    this.charIndex = idx;
+
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = chars.length * this.cellW;
+    this.canvas.height = TIER_COUNT * this.cellH;
+
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to get atlas canvas context");
+
+    // Scratch canvas for the low-res render that creates the pixelation effect.
+    const pixelFontSize = Math.max(4, Math.round(fontSize * MATRIX_GLYPH_PIXEL_SCALE));
+    const scratchW = Math.max(16, pixelFontSize + 10);
+    const scratchH = Math.max(18, Math.round(pixelFontSize * 1.6) + 10);
+    const scratch = document.createElement("canvas");
+    scratch.width = scratchW;
+    scratch.height = scratchH;
+    const scratchCtx = scratch.getContext("2d");
+    if (!scratchCtx) throw new Error("Failed to get scratch canvas context");
+
+    scratchCtx.font = `${pixelFontSize}px "MS Gothic", "Osaka", monospace`;
+    scratchCtx.textAlign = "center";
+    scratchCtx.textBaseline = "top";
+
+    ctx.imageSmoothingEnabled = false;
+
+    for (let tier = 0; tier < TIER_COUNT; tier++) {
+      const brightness = tier === PACKET_TIER ? 1 : TIER_BRIGHTNESS_SAMPLES[tier];
+      const style = glyphStyle(config, brightness, tier === PACKET_TIER, 1);
+
+      for (let ci = 0; ci < chars.length; ci++) {
+        scratchCtx.clearRect(0, 0, scratchW, scratchH);
+        scratchCtx.fillStyle = rgba(style.coreRgb, style.coreAlpha);
+        scratchCtx.fillText(chars[ci], scratchW / 2, 2);
+        ctx.drawImage(
+          scratch,
+          0, 0, scratchW, scratchH,
+          ci * this.cellW, tier * this.cellH, this.cellW, this.cellH,
+        );
+      }
+    }
+  }
+
+  /** Blit a pre-rendered glyph cell onto ctx at (dstX, dstY). */
+  blit(ctx: CanvasRenderingContext2D, char: string, tier: number, dstX: number, dstY: number): void {
+    const ci = this.charIndex.get(char) ?? 0;
+    ctx.drawImage(
+      this.canvas,
+      ci * this.cellW, tier * this.cellH, this.cellW, this.cellH,
+      dstX, dstY, this.cellW, this.cellH,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Renderer class
 // ---------------------------------------------------------------------------
 
 export class MatrixRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private glyphScratchCanvas: HTMLCanvasElement;
-  private glyphScratchCtx: CanvasRenderingContext2D;
   private config: MatrixConfig;
   private layers: MatrixLayerRuntime[] = [];
 
@@ -217,11 +454,6 @@ export class MatrixRenderer {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Failed to get 2d canvas context");
     this.ctx = ctx;
-
-    this.glyphScratchCanvas = document.createElement("canvas");
-    const glyphScratchCtx = this.glyphScratchCanvas.getContext("2d");
-    if (!glyphScratchCtx) throw new Error("Failed to get glyph scratch canvas context");
-    this.glyphScratchCtx = glyphScratchCtx;
 
     this.config = { ...DEFAULT_MATRIX_CONFIG, ...config };
     this.layers = this.createLayers();
@@ -372,7 +604,7 @@ export class MatrixRenderer {
   }
 
   private drawLayerColumn(layer: MatrixLayerRuntime, colIndex: number): void {
-    const { ctx, config, board, grid } = layer;
+    const { ctx, config, board, grid, atlas } = layer;
     const x = colIndex * config.fontSize;
     const cellSize = config.fontSize;
 
@@ -388,129 +620,11 @@ export class MatrixRenderer {
       const cell = getCellAt(board, row, colIndex);
       if (cell.brightness <= 0.01 && !cell.isPacket) continue;
 
-      const style = this.getGlyphStyle(layer, cell.brightness, cell.isPacket, glowBoost);
+      const tier = getBrightnessTier(cell.brightness, cell.isPacket);
+      const style = glyphStyle(config, cell.brightness, cell.isPacket, glowBoost);
       const y = row * cellSize;
-      this.drawGlyph(ctx, cell.char, centerX, y, cellSize, style);
+      this.drawGlyph(ctx, cell.char, centerX, y, style, atlas, tier);
     }
-  }
-
-  private getGlyphStyle(
-    layer: MatrixLayerRuntime,
-    brightness: number,
-    isPacket: boolean,
-    glowBoost: number,
-  ): GlyphStyle {
-    const isForeground = layer.config.id === "foreground";
-    const effectiveGlowBoost = isPacket ? 1 : glowBoost;
-
-    if (isPacket) {
-      return {
-        coreRgb: PACKET_RGB,
-        coreAlpha: isForeground ? 0.9 : 0.7,
-        glowRgb: PACKET_RGB,
-        glowAlpha: isForeground ? 0.42 : 0.18,
-        glowBlur: isForeground ? layer.config.glowBlur * 1.35 : layer.config.glowBlur * 0.7,
-      };
-    }
-
-    if (brightness > 0.95) {
-      return this.applyGlowBoost(
-        {
-          coreRgb: HEAD_RGB,
-          coreAlpha: 0.86,
-          glowRgb: HEAD_RGB,
-          glowAlpha: isForeground ? 0.72 : 0.3,
-          glowBlur: isForeground ? layer.config.glowBlur * 1.05 : layer.config.glowBlur * 0.72,
-        },
-        effectiveGlowBoost,
-      );
-    }
-
-    if (brightness > 0.78) {
-      return this.applyGlowBoost(
-        {
-          coreRgb: MATRIX_GREEN_PALETTE[6],
-          coreAlpha: 0.74,
-          glowRgb: MATRIX_GREEN_PALETTE[6],
-          glowAlpha: isForeground ? 0.48 : 0.18,
-          glowBlur: isForeground ? layer.config.glowBlur * 0.95 : layer.config.glowBlur * 0.55,
-        },
-        effectiveGlowBoost,
-      );
-    }
-
-    if (brightness > 0.62) {
-      return this.applyGlowBoost(
-        {
-          coreRgb: TRAIL_BRIGHT_RGB,
-          coreAlpha: 0.64,
-          glowRgb: TRAIL_BRIGHT_RGB,
-          glowAlpha: isForeground ? 0.4 : 0.14,
-          glowBlur: isForeground ? layer.config.glowBlur * 0.82 : layer.config.glowBlur * 0.45,
-        },
-        effectiveGlowBoost,
-      );
-    }
-
-    if (brightness > 0.42) {
-      return this.applyGlowBoost(
-        {
-          coreRgb: TRAIL_HIGH_RGB,
-          coreAlpha: 0.54,
-          glowRgb: TRAIL_HIGH_RGB,
-          glowAlpha: isForeground ? 0.3 : 0.1,
-          glowBlur: isForeground ? layer.config.glowBlur * 0.68 : layer.config.glowBlur * 0.36,
-        },
-        effectiveGlowBoost,
-      );
-    }
-
-    if (brightness > 0.24) {
-      return this.applyGlowBoost(
-        {
-          coreRgb: TRAIL_MID_RGB,
-          coreAlpha: 0.46,
-          glowRgb: TRAIL_MID_RGB,
-          glowAlpha: isForeground ? 0.2 : 0.05,
-          glowBlur: isForeground ? layer.config.glowBlur * 0.52 : layer.config.glowBlur * 0.22,
-        },
-        effectiveGlowBoost,
-      );
-    }
-
-    if (brightness > 0.12) {
-      return this.applyGlowBoost(
-        {
-          coreRgb: TRAIL_DIM_RGB,
-          coreAlpha: 0.34,
-          glowRgb: TRAIL_DIM_RGB,
-          glowAlpha: isForeground ? 0.12 : 0.03,
-          glowBlur: isForeground ? layer.config.glowBlur * 0.36 : layer.config.glowBlur * 0.12,
-        },
-        effectiveGlowBoost,
-      );
-    }
-
-    return {
-      coreRgb: TRAIL_VOID_RGB,
-      coreAlpha: 0.24,
-      glowRgb: TRAIL_VOID_RGB,
-      glowAlpha: 0,
-      glowBlur: 0,
-    };
-  }
-
-  private applyGlowBoost(style: GlyphStyle, glowBoost: number): GlyphStyle {
-    if (glowBoost <= 1) {
-      return style;
-    }
-
-    return {
-      ...style,
-      coreAlpha: Math.min(1, style.coreAlpha * (0.94 + glowBoost * 0.12)),
-      glowAlpha: Math.min(1, style.glowAlpha * (0.82 + glowBoost * 0.36)),
-      glowBlur: style.glowBlur * (0.9 + glowBoost * 0.24),
-    };
   }
 
   private drawGlyph(
@@ -518,8 +632,9 @@ export class MatrixRenderer {
     char: string,
     x: number,
     y: number,
-    cellSize: number,
     style: GlyphStyle,
+    atlas: GlyphAtlas,
+    tier: number,
   ): void {
     if (style.glowBlur > 0 && style.glowAlpha > 0) {
       ctx.shadowBlur = style.glowBlur;
@@ -530,49 +645,7 @@ export class MatrixRenderer {
       ctx.shadowColor = "transparent";
     }
 
-    this.drawPixelatedCore(ctx, char, x, y, cellSize, style);
-  }
-
-  private drawPixelatedCore(
-    ctx: CanvasRenderingContext2D,
-    char: string,
-    x: number,
-    y: number,
-    cellSize: number,
-    style: GlyphStyle,
-  ): void {
-    const pixelFontSize = Math.max(4, Math.round(cellSize * MATRIX_GLYPH_PIXEL_SCALE));
-    const scratchWidth = Math.max(16, pixelFontSize + 10);
-    const scratchHeight = Math.max(18, Math.round(pixelFontSize * 1.6) + 10);
-
-    if (
-      this.glyphScratchCanvas.width !== scratchWidth ||
-      this.glyphScratchCanvas.height !== scratchHeight
-    ) {
-      this.glyphScratchCanvas.width = scratchWidth;
-      this.glyphScratchCanvas.height = scratchHeight;
-    }
-
-    this.glyphScratchCtx.clearRect(0, 0, scratchWidth, scratchHeight);
-    this.glyphScratchCtx.font = `${pixelFontSize}px "MS Gothic", "Osaka", monospace`;
-    this.glyphScratchCtx.textAlign = "center";
-    this.glyphScratchCtx.textBaseline = "top";
-    this.glyphScratchCtx.fillStyle = rgba(style.coreRgb, style.coreAlpha);
-    this.glyphScratchCtx.fillText(char, scratchWidth / 2, 2);
-
-    const drawWidth = Math.max(1, Math.round(cellSize * 0.98));
-    const drawHeight = Math.max(1, Math.round(cellSize * 1.24));
-
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(
-      this.glyphScratchCanvas,
-      Math.round(x - drawWidth / 2),
-      Math.round(y),
-      drawWidth,
-      drawHeight,
-    );
-    ctx.restore();
+    atlas.blit(ctx, char, tier, Math.round(x - atlas.cellW / 2), Math.round(y));
   }
 
   private createLayers(): MatrixLayerRuntime[] {
@@ -602,6 +675,7 @@ export class MatrixRenderer {
         grid,
         surface,
         ctx,
+        atlas: new GlyphAtlas(config),
         lastTickTime: 0,
         lastPostRotationTime: 0,
         activePacketCols: [],
