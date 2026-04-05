@@ -16,7 +16,21 @@ use crate::models::{Post, XApiError, XApiIncludes, XApiTweetResponse, XApiUserLo
 // Constants
 // ---------------------------------------------------------------------------
 
-const X_API_BASE: &str = "https://api.x.com/2";
+const DEFAULT_X_API_BASE: &str = "https://api.x.com/2";
+
+fn x_api_base() -> String {
+    match std::env::var("FLIPTRIX_X_API_BASE") {
+        Ok(override_base) => {
+            let trimmed = override_base.trim().trim_end_matches('/');
+            if trimmed.is_empty() {
+                DEFAULT_X_API_BASE.to_string()
+            } else {
+                trimmed.to_string()
+            }
+        }
+        Err(_) => DEFAULT_X_API_BASE.to_string(),
+    }
+}
 
 /// Fields requested on every tweet endpoint call.
 const TWEET_FIELDS: &str = "id,text,created_at,author_id,note_tweet";
@@ -67,7 +81,7 @@ impl XApiClient {
     ///
     /// The timeline endpoint requires the numeric ID, not the username.
     pub async fn resolve_user_id(&self, username: &str) -> Result<String, String> {
-        let url = format!("{X_API_BASE}/users/by/username/{username}");
+        let url = format!("{}/users/by/username/{username}", x_api_base());
 
         let resp = self
             .http
@@ -114,7 +128,7 @@ impl XApiClient {
         start_time: Option<DateTime<Utc>>,
         max_results: u32,
     ) -> Result<XApiTweetResponse, String> {
-        let url = format!("{X_API_BASE}/users/{user_id}/tweets");
+        let url = format!("{}/users/{user_id}/tweets", x_api_base());
         let max_results = max_results.clamp(5, 100);
 
         let mut request = self.http.get(&url).bearer_auth(&self.bearer_token).query(&[
@@ -158,7 +172,7 @@ impl XApiClient {
         query: &str,
         max_results: u32,
     ) -> Result<XApiTweetResponse, String> {
-        let url = format!("{X_API_BASE}/tweets/search/recent");
+        let url = format!("{}/tweets/search/recent", x_api_base());
         let max_results = max_results.clamp(10, 100);
 
         let resp = self
@@ -355,6 +369,9 @@ fn format_api_errors(errors: &[XApiError]) -> String {
 mod tests {
     use super::*;
     use crate::models::*;
+    use std::sync::Mutex;
+
+    static X_API_BASE_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_normalize_response_basic() {
@@ -548,5 +565,26 @@ mod tests {
     fn test_client_accepts_valid_token() {
         let result = XApiClient::new("valid_bearer_token_123".into());
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_x_api_base_defaults_to_x_api() {
+        let _guard = X_API_BASE_LOCK.lock().unwrap();
+        unsafe {
+            std::env::remove_var("FLIPTRIX_X_API_BASE");
+        }
+        assert_eq!(x_api_base(), "https://api.x.com/2");
+    }
+
+    #[test]
+    fn test_x_api_base_uses_env_override_without_trailing_slash() {
+        let _guard = X_API_BASE_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("FLIPTRIX_X_API_BASE", "http://127.0.0.1:19001/2/");
+        }
+        assert_eq!(x_api_base(), "http://127.0.0.1:19001/2");
+        unsafe {
+            std::env::remove_var("FLIPTRIX_X_API_BASE");
+        }
     }
 }

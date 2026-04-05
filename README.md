@@ -29,6 +29,12 @@ Typical Ubuntu 24.04 packages:
 sudo apt install pkg-config patchelf libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev
 ```
 
+### E2E prerequisites
+
+- Install `tauri-driver` (`cargo install tauri-driver`)
+- Build the desktop app binary before running E2E tests
+- Windows: install a matching WebDriver for your installed Edge version (for `tauri-driver`)
+
 ## Install
 
 ```bash
@@ -99,6 +105,35 @@ Rust:
 . "$HOME/.cargo/env" && cargo test
 ```
 
+End-to-end:
+
+```bash
+# Generic full E2E flows (runs on Windows and Linux)
+corepack pnpm e2e:generic
+
+# Platform-focused suites
+corepack pnpm e2e:windows
+corepack pnpm e2e:linux
+```
+
+Platform verification commands:
+
+```bash
+corepack pnpm verify:windows
+corepack pnpm verify:linux
+```
+
+E2E suite types:
+
+- Generic full E2E: shared desktop behavior on both platforms
+- Windows-only focused tests: Windows-specific autostart/path behavior
+- Linux-only focused tests: Linux-specific autostart/path behavior
+
+Notes:
+
+- Multi-monitor behavior is intentionally out of scope for current E2E tests
+- E2E runs are deterministic and do not call live X APIs
+
 ## Useful Commands
 
 ```bash
@@ -107,6 +142,9 @@ corepack pnpm tauri build
 corepack pnpm test
 corepack pnpm lint
 corepack pnpm format
+corepack pnpm e2e:generic
+corepack pnpm e2e:windows
+corepack pnpm e2e:linux
 ```
 
 ## Notes
@@ -121,3 +159,4 @@ corepack pnpm format
 - Product requirements: `docs/PRD`
 - Technical spec: `docs/TECH-SPEC.md`
 - Implementation plan: `docs/IMPLEMENTATION-PLAN.md`
+- E2E testing guide: `docs/E2E-TESTING.md`

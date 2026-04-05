@@ -377,7 +377,9 @@ class GlyphAtlas {
     const chars = [...charSet];
 
     const idx = new Map<string, number>();
-    chars.forEach((c, i) => idx.set(c, i));
+    chars.forEach((c, i) => {
+      idx.set(c, i);
+    });
     this.charIndex = idx;
 
     this.canvas = document.createElement("canvas");
