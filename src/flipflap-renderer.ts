@@ -11,6 +11,7 @@
  * `setPostContent()` and the renderer transitions the board to it.
  */
 
+import { BackgroundImageManager, DEFAULT_BACKGROUND_SWIRL_SPEED } from "./background-image";
 import { type FlipAudioConfig, FlipSoundPlayer } from "./flipflap-audio";
 import type { FlapBoard, PostEntry } from "./flipflap-state";
 import {
@@ -33,6 +34,12 @@ export interface FlipFlapConfig {
   postRotationSec: number;
   /** Audio configuration. Null to disable sound. */
   audio: FlipAudioConfig | null;
+  /** Fullscreen background image URL shown behind the board. */
+  backgroundImageUrl: string | null;
+  /** Enables subtle background drift animation to reduce static burn-in. */
+  backgroundAnimationEnabled: boolean;
+  /** Speed multiplier for the drift animation. */
+  backgroundSwirlSpeed: number;
 }
 
 /** Sensible defaults matching the PRD (8x40 board, 20s rotation). */
@@ -42,6 +49,9 @@ export const DEFAULT_FLIPFLAP_CONFIG: FlipFlapConfig = {
   tickIntervalMs: 80,
   postRotationSec: 20,
   audio: null, // Populated by FlipFlapRenderer from default audio config
+  backgroundImageUrl: null,
+  backgroundAnimationEnabled: true,
+  backgroundSwirlSpeed: DEFAULT_BACKGROUND_SWIRL_SPEED,
 };
 
 // --- Visual constants ---
@@ -108,6 +118,7 @@ export class FlipFlapRenderer {
   private board: FlapBoard;
   private audioPlayer: FlipSoundPlayer | null;
   private theme: FlapSurfaceTheme;
+  private backgroundImageManager: BackgroundImageManager | null;
 
   private animationFrameId: number | null = null;
   private lastTickTime = 0;
@@ -134,6 +145,10 @@ export class FlipFlapRenderer {
     } else {
       this.audioPlayer = new FlipSoundPlayer();
     }
+
+    this.backgroundImageManager = this.config.backgroundImageUrl
+      ? new BackgroundImageManager(this.config.backgroundImageUrl)
+      : null;
   }
 
   /** Set the posts to rotate through on the board. */
@@ -234,9 +249,22 @@ export class FlipFlapRenderer {
     const { canvas, ctx, board } = this;
     const { width, height } = canvas;
 
-    // Clear
-    ctx.fillStyle = BOARD_BG;
-    ctx.fillRect(0, 0, width, height);
+    const drewImage = this.backgroundImageManager?.draw(
+      ctx,
+      width,
+      height,
+      this.config.backgroundAnimationEnabled,
+      this.config.backgroundSwirlSpeed,
+      performance.now(),
+    );
+
+    if (drewImage) {
+      ctx.fillStyle = "rgba(6, 7, 8, 0.5)";
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      ctx.fillStyle = BOARD_BG;
+      ctx.fillRect(0, 0, width, height);
+    }
 
     // Compute cell dimensions to fill the canvas
     const layout = computeCellLayout(width, height, board.rows, board.cols);
