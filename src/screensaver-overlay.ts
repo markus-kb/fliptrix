@@ -15,6 +15,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { FlipFlapRenderer } from "./flipflap-renderer";
+import { logError, logWarn, setFrontendDebugLogging } from "./logger";
 import { MatrixRenderer } from "./matrix-renderer";
 import { MouseTracker } from "./screensaver";
 import {
@@ -83,7 +84,7 @@ export function initScreensaverOverlay(root: HTMLElement): void {
       try {
         await invoke("deactivate_screensaver");
       } catch (err) {
-        console.error("failed to deactivate screensaver:", err);
+        logError("Failed to deactivate screensaver", err);
       }
     }
 
@@ -262,8 +263,13 @@ function stopActiveRenderer(): void {
 
 async function loadSettings(): Promise<AppSettings> {
   try {
-    return await invoke<AppSettings>("get_settings");
-  } catch {
+    const settings = await invoke<AppSettings>("get_settings");
+    setFrontendDebugLogging(settings.debug_logging_enabled);
+    return settings;
+  } catch (err) {
+    logWarn("Failed to load settings in screensaver overlay, using defaults");
+    setFrontendDebugLogging(false);
+    logError("Screensaver overlay settings load failed", err);
     return cloneDefaultSettings();
   }
 }
@@ -287,7 +293,8 @@ async function loadCachedPosts(
       text: post.text,
       author: post.author_username ? `@${post.author_username}` : post.author_name,
     }));
-  } catch {
+  } catch (err) {
+    logError("Failed to load cached posts", err, { mode });
     return [];
   }
 }

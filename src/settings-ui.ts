@@ -14,12 +14,14 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { logDebug, logError, logInfo, logWarn, setFrontendDebugLogging } from "./logger";
 import {
   type AppSettings,
   activateScreensaver,
   cloneDefaultSettings,
   getAutostartEnabled,
   getSettings,
+  openLogsDirectory,
   saveSettings,
   setAutostartEnabled,
   withScreensaverMode,
@@ -292,6 +294,31 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
           </span>
         </fieldset>
 
+        <!-- Diagnostics -->
+        <fieldset class="panel">
+          <legend>Diagnostics</legend>
+
+          <label class="field field-checkbox">
+            <input type="checkbox" name="debug_logging_enabled" id="debug-logging-checkbox"
+              ${s.debug_logging_enabled ? "checked" : ""} />
+            <span class="field-label">Enable debug logs</span>
+          </label>
+
+          <span class="field-hint">
+            Keeps production logging at info level by default and includes debug entries when enabled.
+          </span>
+
+          <div class="field field-actions">
+            <span class="field-label">Logs folder</span>
+            <div class="inline-actions">
+              <button type="button" id="open-logs-btn" class="btn btn-secondary">Open logs folder</button>
+            </div>
+            <span class="field-hint">
+              Opens the app log directory in your system file explorer.
+            </span>
+          </div>
+        </fieldset>
+
         <div class="settings-actions-wrap">
           <div class="settings-actions">
             <button type="submit" class="btn btn-primary">Save settings</button>
@@ -316,6 +343,8 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   const saveFeedback =
     root.querySelector<HTMLElement>("#settings-save-feedback") ?? previewFeedback;
 
+  setFrontendDebugLogging(initialSettings.debug_logging_enabled);
+
   // Show/hide mode-switch-interval based on selected mode.
   const modeSelect = form.querySelector<HTMLSelectElement>('[name="mode"]');
   modeSelect?.addEventListener("change", () => syncModeSwitchVisibility(form));
@@ -338,6 +367,9 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   // Refresh posts button.
   wireRefreshPosts(root);
 
+  // Open logs folder.
+  wireOpenLogsButton(root, previewFeedback);
+
   // Manual mode test buttons.
   wirePreviewButtons(root, form, previewFeedback, saveFeedback, initialSettings);
 
@@ -347,7 +379,10 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   // Reset to defaults.
   const resetBtn = root.querySelector<HTMLButtonElement>("#reset-btn");
   resetBtn?.addEventListener("click", () => {
-    populateForm(form, cloneDefaultSettings());
+    const defaults = cloneDefaultSettings();
+    populateForm(form, defaults);
+    setFrontendDebugLogging(defaults.debug_logging_enabled);
+    logInfo("Settings form reset to defaults");
     previewFeedback.hidden = true;
     showFeedback(saveFeedback, "info", "Defaults loaded — click Save to apply.");
   });
@@ -359,13 +394,19 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
     try {
       await saveSettings(settings);
       previewFeedback.hidden = true;
+      setFrontendDebugLogging(settings.debug_logging_enabled);
+      logInfo("Settings saved", {
+        mode: settings.mode,
+        debugLoggingEnabled: settings.debug_logging_enabled,
+      });
       showFeedback(saveFeedback, "success", "Settings saved.");
     } catch (err) {
       previewFeedback.hidden = true;
+      logError("Failed to save settings", err);
       showFeedback(
         saveFeedback,
         "error",
-        `Failed to save: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to save: $err instanceof Error ? err.message : String(err)`,
       );
     }
   });
@@ -406,9 +447,23 @@ function readFormValues(form: HTMLFormElement, fallback: AppSettings): AppSettin
     return typeof value === "string" ? value : fb;
   }
 
+  function bool(name: string, fb: boolean): boolean {
+    const value = d.get(name);
+    if (value === null) {
+      return false;
+    }
+
+    if (typeof value === "string") {
+      return value === "on";
+    }
+
+    return fb;
+  }
+
   return {
     idle_timeout_secs: num("idle_timeout_secs", fallback.idle_timeout_secs),
     mouse_dead_zone_px: num("mouse_dead_zone_px", fallback.mouse_dead_zone_px),
+    debug_logging_enabled: bool("debug_logging_enabled", fallback.debug_logging_enabled),
     mode: (d.get("mode") as AppSettings["mode"]) ?? fallback.mode,
     mode_switch_interval_mins: num("mode_switch_interval_mins", fallback.mode_switch_interval_mins),
     flipflap_rows: num("flipflap_rows", fallback.flipflap_rows),
@@ -481,6 +536,11 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     matrixAccounts.value = formatAccountsField(s.matrix_accounts);
   }
 
+  const debugLoggingCheckbox = form.querySelector<HTMLInputElement>("#debug-logging-checkbox");
+  if (debugLoggingCheckbox) {
+    debugLoggingCheckbox.checked = s.debug_logging_enabled;
+  }
+
   // Update the volume output label.
   const volumeOutput = form.querySelector<HTMLOutputElement>(".range-output");
   if (volumeOutput) {
@@ -501,7 +561,7 @@ function syncModeSwitchVisibility(form: HTMLFormElement): void {
 }
 
 function showFeedback(el: HTMLElement, type: "success" | "error" | "info", message: string): void {
-  el.className = `settings-feedback settings-feedback--${type}`;
+  el.className = `settings-feedback settings-feedback--$type`;
   el.textContent = message;
   el.hidden = false;
 
@@ -526,8 +586,9 @@ function wireAutostartToggle(form: HTMLFormElement): void {
       // command or the stored install path.
       const exePath = checkbox.checked ? ((await getExePath()) ?? "") : "";
       await setAutostartEnabled(checkbox.checked, exePath);
+      logInfo("Autostart setting changed", { enabled: checkbox.checked });
     } catch (err) {
-      console.error("autostart toggle failed:", err);
+      logError("Autostart toggle failed", err, { intendedEnabled: checkbox.checked });
       // Revert the checkbox on failure.
       checkbox.checked = !checkbox.checked;
     }
@@ -556,9 +617,10 @@ function wireApiKeySave(root: HTMLElement, form: HTMLFormElement): void {
     const token = input?.value ?? "";
     try {
       await invoke("set_api_key", { bearerToken: token });
+      logInfo("Bearer token saved", { configured: token.trim().length > 0 });
       loadApiKeyStatus(root);
     } catch (err) {
-      console.error("failed to save API key:", err);
+      logError("Failed to save bearer token", err);
     }
   });
 }
@@ -575,11 +637,38 @@ function wireRefreshPosts(root: HTMLElement): void {
       // Refresh both modes so both caches are populated.
       await invoke("fetch_posts", { mode: "matrix" });
       await invoke("fetch_posts", { mode: "flipflap" });
+      logInfo("Post refresh completed for both modes");
       status.textContent = "Posts refreshed.";
     } catch (err) {
-      status.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+      logError("Post refresh failed", err);
+      status.textContent = `Error: $err instanceof Error ? err.message : String(err)`;
     } finally {
       btn.disabled = false;
+    }
+  });
+}
+
+function wireOpenLogsButton(root: HTMLElement, feedback: HTMLElement): void {
+  const button = root.querySelector<HTMLButtonElement>("#open-logs-btn");
+  if (!button) {
+    return;
+  }
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      const path = await openLogsDirectory();
+      logInfo("Opened logs directory", { path });
+      showFeedback(feedback, "info", `Opened logs folder: $path`);
+    } catch (err) {
+      logError("Failed to open logs directory", err);
+      showFeedback(
+        feedback,
+        "error",
+        `Failed to open logs folder: $err instanceof Error ? err.message : String(err)`,
+      );
+    } finally {
+      button.disabled = false;
     }
   });
 }
@@ -614,11 +703,14 @@ function wirePreviewButtons(
         const settings = withScreensaverMode(readFormValues(form, fallback), mode);
         await saveSettings(settings);
         populateForm(form, settings);
+        setFrontendDebugLogging(settings.debug_logging_enabled);
         await activateScreensaver();
         saveFeedback.hidden = true;
+        logInfo("Started mode preview", { mode });
         showFeedback(previewFeedback, "info", successMessage);
       } catch (err) {
         saveFeedback.hidden = true;
+        logError("Failed to start mode preview", err, { mode });
         showFeedback(
           previewFeedback,
           "error",
@@ -639,7 +731,9 @@ async function loadApiKeyStatus(root: HTMLElement): Promise<void> {
   try {
     const hasKey = await invoke<boolean>("get_api_key_status");
     hint.textContent = hasKey ? "Status: token saved ✓" : "Status: not configured";
+    logDebug("API key status loaded", { configured: hasKey });
   } catch {
     hint.textContent = "Status: unavailable";
+    logWarn("API key status unavailable");
   }
 }

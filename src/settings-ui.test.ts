@@ -8,14 +8,26 @@ const {
   invokeMock,
   getSettingsMock,
   getAutostartEnabledMock,
+  openLogsDirectoryMock,
   saveSettingsMock,
   setAutostartEnabledMock,
+  logDebugMock,
+  logErrorMock,
+  logInfoMock,
+  logWarnMock,
+  setFrontendDebugLoggingMock,
 } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   getSettingsMock: vi.fn<() => Promise<AppSettings>>(),
   getAutostartEnabledMock: vi.fn<() => Promise<boolean>>(),
+  openLogsDirectoryMock: vi.fn<() => Promise<string>>(),
   saveSettingsMock: vi.fn<(settings: AppSettings) => Promise<void>>(),
   setAutostartEnabledMock: vi.fn<(enabled: boolean, exePath: string) => Promise<void>>(),
+  logDebugMock: vi.fn(),
+  logErrorMock: vi.fn(),
+  logInfoMock: vi.fn(),
+  logWarnMock: vi.fn(),
+  setFrontendDebugLoggingMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -28,10 +40,19 @@ vi.mock("./settings", async () => {
     ...actual,
     getSettings: getSettingsMock,
     getAutostartEnabled: getAutostartEnabledMock,
+    openLogsDirectory: openLogsDirectoryMock,
     saveSettings: saveSettingsMock,
     setAutostartEnabled: setAutostartEnabledMock,
   };
 });
+
+vi.mock("./logger", () => ({
+  logDebug: logDebugMock,
+  logError: logErrorMock,
+  logInfo: logInfoMock,
+  logWarn: logWarnMock,
+  setFrontendDebugLogging: setFrontendDebugLoggingMock,
+}));
 
 import { cloneDefaultSettings } from "./settings";
 import { formatAccountsField, initSettingsUi, parseAccountsField } from "./settings-ui";
@@ -56,9 +77,16 @@ describe("initSettingsUi", () => {
     getAutostartEnabledMock.mockReset();
     saveSettingsMock.mockReset();
     setAutostartEnabledMock.mockReset();
+    openLogsDirectoryMock.mockReset();
+    logDebugMock.mockReset();
+    logErrorMock.mockReset();
+    logInfoMock.mockReset();
+    logWarnMock.mockReset();
+    setFrontendDebugLoggingMock.mockReset();
 
     getSettingsMock.mockResolvedValue(cloneDefaultSettings());
     getAutostartEnabledMock.mockResolvedValue(false);
+    openLogsDirectoryMock.mockResolvedValue("/tmp/fliptrix/logs");
     saveSettingsMock.mockResolvedValue();
     invokeMock.mockResolvedValue(undefined);
   });
@@ -72,6 +100,16 @@ describe("initSettingsUi", () => {
     expect(root.querySelector("#test-matrix-btn")?.textContent).toContain("Test Matrix now");
     expect(root.querySelector("#test-flipflap-btn")?.textContent).toContain("Test FlipFlap now");
     expect(root.querySelector("#test-both-btn")?.textContent).toContain("Test Both now");
+  });
+
+  it("renders diagnostics controls", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    expect(root.querySelector("#debug-logging-checkbox")).not.toBeNull();
+    expect(root.querySelector("#open-logs-btn")?.textContent).toContain("Open logs folder");
   });
 
   it("renders X data rows as aligned FlipFlap and Matrix columns", async () => {
@@ -219,5 +257,21 @@ describe("initSettingsUi", () => {
       }),
     );
     expect(invokeMock).toHaveBeenCalledWith("activate_screensaver");
+  });
+
+  it("opens logs folder from diagnostics button", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const button = root.querySelector<HTMLButtonElement>("#open-logs-btn");
+    if (!button) throw new Error("missing open logs button");
+
+    button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(openLogsDirectoryMock).toHaveBeenCalledTimes(1);
   });
 });

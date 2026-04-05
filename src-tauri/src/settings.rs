@@ -54,6 +54,10 @@ pub struct AppSettings {
     #[serde(default = "default_mouse_dead_zone_px")]
     pub mouse_dead_zone_px: f64,
 
+    /// Enables verbose debug/trace logging for diagnostics (default: false).
+    #[serde(default = "default_debug_logging_enabled")]
+    pub debug_logging_enabled: bool,
+
     // --- Mode ---
     /// Which visual mode to show (default: Matrix).
     #[serde(default)]
@@ -152,6 +156,9 @@ fn default_idle_timeout_secs() -> u64 {
 fn default_mouse_dead_zone_px() -> f64 {
     5.0
 }
+fn default_debug_logging_enabled() -> bool {
+    false
+}
 fn default_mode_switch_interval_mins() -> u64 {
     10
 }
@@ -212,6 +219,7 @@ impl Default for AppSettings {
         Self {
             idle_timeout_secs: default_idle_timeout_secs(),
             mouse_dead_zone_px: default_mouse_dead_zone_px(),
+            debug_logging_enabled: default_debug_logging_enabled(),
             mode: ScreensaverMode::default(),
             mode_switch_interval_mins: default_mode_switch_interval_mins(),
             flipflap_rows: default_flipflap_rows(),
@@ -391,6 +399,11 @@ mod tests {
     }
 
     #[test]
+    fn test_default_debug_logging_disabled() {
+        assert!(!AppSettings::default().debug_logging_enabled);
+    }
+
+    #[test]
     fn test_default_matrix_settings() {
         let settings = AppSettings::default();
         assert_eq!(settings.matrix_font_size, 24);
@@ -558,6 +571,7 @@ mod tests {
         assert_eq!(settings.mode, ScreensaverMode::FlipFlap);
         assert_eq!(settings.idle_timeout_secs, 600);
         // Unspecified fields stay at defaults.
+        assert!(!settings.debug_logging_enabled);
         assert_eq!(settings.flipflap_rows, 8);
         assert_eq!(settings.matrix_font_size, 24);
         assert_eq!(settings.flipflap_time_window_hours, 24);
