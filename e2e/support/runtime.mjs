@@ -8,6 +8,10 @@ export const APP_ID = "com.fliptrix.desktop";
 
 const DRIVER_PORT = Number(process.env.FLIPTRIX_E2E_DRIVER_PORT ?? "4444");
 const DRIVER_PATH = process.env.FLIPTRIX_E2E_DRIVER_PATH ?? "/";
+const LINUX_NATIVE_DRIVER_CANDIDATES = [
+  "/usr/bin/WebKitWebDriver",
+  "/usr/libexec/webkit2gtk-4.1/WebKitWebDriver",
+];
 
 export async function waitFor(check, { timeoutMs = 15_000, intervalMs = 250, errorMessage }) {
   const startedAt = Date.now();
@@ -31,6 +35,72 @@ async function exists(path) {
   } catch {
     return false;
   }
+}
+
+function parseDriverArgs(rawArgs) {
+  return rawArgs
+    .split(" ")
+    .map((arg) => arg.trim())
+    .filter(Boolean);
+}
+
+export function hasLinuxDisplay(env = process.env) {
+  return Boolean(env.DISPLAY || env.WAYLAND_DISPLAY);
+}
+
+export function resolveNativeDriverFromArgs(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--native-driver") {
+      return args[index + 1] ?? null;
+    }
+    if (arg.startsWith("--native-driver=")) {
+      return arg.slice("--native-driver=".length) || null;
+    }
+  }
+  return null;
+}
+
+async function resolveLinuxNativeDriverPath() {
+  for (const candidate of LINUX_NATIVE_DRIVER_CANDIDATES) {
+    if (await exists(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+export async function computeTauriDriverArgs({
+  platform = process.platform,
+  rawArgs = process.env.FLIPTRIX_E2E_DRIVER_ARGS ?? "",
+  env = process.env,
+  linuxNativeDriverPath,
+} = {}) {
+  const extraArgs = parseDriverArgs(rawArgs);
+
+  if (platform !== "linux") {
+    return extraArgs;
+  }
+
+  if (!hasLinuxDisplay(env)) {
+    throw new Error(
+      "Linux E2E requires a graphical display. Set DISPLAY/WAYLAND_DISPLAY or run under xvfb (e.g. `xvfb-run -a corepack pnpm e2e:generic`).",
+    );
+  }
+
+  const explicitNativeDriver = resolveNativeDriverFromArgs(extraArgs);
+  if (explicitNativeDriver) {
+    return extraArgs;
+  }
+
+  const detectedDriver = linuxNativeDriverPath ?? (await resolveLinuxNativeDriverPath());
+  if (!detectedDriver) {
+    throw new Error(
+      "Unable to locate Linux native WebDriver. Install package `webkit2gtk-driver` and ensure `/usr/bin/WebKitWebDriver` exists, or set FLIPTRIX_E2E_DRIVER_ARGS='--native-driver /path/to/WebKitWebDriver'.",
+    );
+  }
+
+  return [...extraArgs, "--native-driver", detectedDriver];
 }
 
 export async function resolveApplicationPath() {
@@ -91,19 +161,20 @@ async function isDriverReady() {
 
 export async function startTauriDriver(envOverrides = {}) {
   const driverCommand = process.env.FLIPTRIX_TAURI_DRIVER ?? "tauri-driver";
-  const extraArgs = (process.env.FLIPTRIX_E2E_DRIVER_ARGS ?? "")
-    .split(" ")
-    .map((arg) => arg.trim())
-    .filter(Boolean);
+  const mergedEnv = {
+    ...process.env,
+    ...envOverrides,
+  };
+  const extraArgs = await computeTauriDriverArgs({
+    rawArgs: mergedEnv.FLIPTRIX_E2E_DRIVER_ARGS ?? "",
+    env: mergedEnv,
+  });
 
   const logs = [];
   let startupError = null;
   let exited = false;
   const child = spawn(driverCommand, extraArgs, {
-    env: {
-      ...process.env,
-      ...envOverrides,
-    },
+    env: mergedEnv,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
