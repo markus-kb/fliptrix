@@ -23,6 +23,7 @@ export interface AppSettings {
   // General
   idle_timeout_secs: number;
   mouse_dead_zone_px: number;
+  debug_logging_enabled: boolean;
 
   // Mode
   mode: ScreensaverMode;
@@ -56,6 +57,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   idle_timeout_secs: 300,
   mouse_dead_zone_px: 5,
+  debug_logging_enabled: false,
   mode: "matrix",
   mode_switch_interval_mins: 10,
   flipflap_rows: 8,
@@ -139,4 +141,8 @@ export async function getAutostartEnabled(): Promise<boolean> {
  */
 export async function setAutostartEnabled(enabled: boolean, exePath: string): Promise<void> {
   await invoke("set_autostart_enabled", { enabled, exePath });
+}
+
+export async function openLogsDirectory(): Promise<string> {
+  return await invoke<string>("open_logs_directory");
 }
