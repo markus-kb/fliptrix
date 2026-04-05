@@ -8,10 +8,13 @@ mod models;
 mod settings;
 mod windowing;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
+use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_store::StoreExt;
 
 use api_client::XApiClient;
@@ -53,8 +56,12 @@ fn resolve_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
         let trimmed = override_dir.trim();
         if !trimmed.is_empty() {
             let path = std::path::PathBuf::from(trimmed);
-            std::fs::create_dir_all(&path)
-                .map_err(|e| format!("failed to create e2e app data dir '{}': {e}", path.display()))?;
+            std::fs::create_dir_all(&path).map_err(|e| {
+                format!(
+                    "failed to create e2e app data dir '{}': {e}",
+                    path.display()
+                )
+            })?;
             return Ok(path);
         }
     }
@@ -66,6 +73,23 @@ fn resolve_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     std::fs::create_dir_all(&path)
         .map_err(|e| format!("failed to create app data dir '{}': {e}", path.display()))?;
     Ok(path)
+}
+
+/// Runtime flag that controls whether debug/trace logs are emitted.
+static DEBUG_LOGGING_ENABLED: AtomicBool = AtomicBool::new(false);
+
+fn set_debug_logging_enabled(enabled: bool) {
+    DEBUG_LOGGING_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+fn should_emit_log(metadata: &log::Metadata<'_>) -> bool {
+    if matches!(metadata.level(), log::Level::Debug | log::Level::Trace)
+        && !DEBUG_LOGGING_ENABLED.load(Ordering::Relaxed)
+    {
+        return false;
+    }
+
+    !matches!(metadata.target(), "hyper" | "h2" | "mio")
 }
 
 // ---------------------------------------------------------------------------
@@ -340,13 +364,35 @@ async fn fetch_posts(app: AppHandle, mode: String) -> Result<Vec<Post>, String> 
         }
     };
 
+    log::info!(
+        "starting X post fetch (mode={mode}, accounts={}, search_configured={}, window_hours={})",
+        mode_config.accounts.len(),
+        mode_config
+            .search_query
+            .as_deref()
+            .is_some_and(|query| !query.trim().is_empty()),
+        mode_config.time_window_hours
+    );
+
     // Nothing to fetch if no accounts or search query configured.
     if mode_config.accounts.is_empty() && mode_config.search_query.is_none() {
         return Err("no accounts or search query configured for this mode".into());
     }
 
     // Fetch from the API.
-    let posts = client.fetch_posts_for_config(&mode_config).await?;
+    let started_at = Instant::now();
+    let posts = client
+        .fetch_posts_for_config(&mode_config)
+        .await
+        .map_err(|e| {
+            log::error!("X post fetch failed (mode={mode}): {e}");
+            e
+        })?;
+    log::info!(
+        "X post fetch succeeded (mode={mode}, posts={}, duration_ms={})",
+        posts.len(),
+        started_at.elapsed().as_millis()
+    );
 
     // Write to cache.
     let new_cache = PostCache {
@@ -446,6 +492,9 @@ async fn set_settings(app: AppHandle, new_settings: AppSettings) -> Result<(), S
         .save()
         .map_err(|e| format!("store save failed: {e}"))?;
 
+    let debug_logging_enabled = new_settings.debug_logging_enabled;
+    let mode = new_settings.mode;
+
     // Update in-memory settings so the idle poller picks up the new
     // idle_timeout and the dead-zone check uses the new value immediately.
     let state = app.state::<AppState>();
@@ -480,7 +529,13 @@ async fn set_settings(app: AppHandle, new_settings: AppSettings) -> Result<(), S
         *guard = new_settings;
     }
 
-    log::info!("settings updated and applied");
+    set_debug_logging_enabled(debug_logging_enabled);
+
+    log::info!(
+        "settings updated and applied (mode={:?}, debug_logging_enabled={})",
+        mode,
+        debug_logging_enabled
+    );
     Ok(())
 }
 
@@ -512,6 +567,26 @@ async fn set_autostart_enabled(
     // Emit an event so the frontend can update its toggle without a round-trip.
     let _ = app.emit("autostart:changed", enabled);
     Ok(())
+}
+
+/// Opens the application log directory in the system file explorer.
+#[tauri::command]
+fn open_logs_directory(app: AppHandle) -> Result<String, String> {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| format!("failed to resolve log dir: {e}"))?;
+
+    std::fs::create_dir_all(&log_dir)
+        .map_err(|e| format!("failed to create log dir {}: {e}", log_dir.display()))?;
+
+    app.opener()
+        .open_path(log_dir.display().to_string(), None::<&str>)
+        .map_err(|e| format!("failed to open log dir: {e}"))?;
+
+    let display = log_dir.display().to_string();
+    log::info!("opened logs directory: {display}");
+    Ok(display)
 }
 
 // ---------------------------------------------------------------------------
@@ -630,20 +705,26 @@ pub fn run() {
     // is overridden later inside setup() once the persisted settings are loaded.
     let config = LifecycleConfig::default();
 
-    // Try to create the platform idle provider. Log and continue if it fails
-    // (e.g. headless server, Wayland-only session).
-    let idle_provider: Option<Box<dyn IdleProvider>> = match idle::create_idle_provider() {
-        Ok(provider) => {
-            log::info!("idle detection initialized");
-            Some(provider)
-        }
-        Err(e) => {
-            log::warn!("idle detection unavailable: {e}");
-            None
-        }
+    let log_plugin = {
+        let builder = tauri_plugin_log::Builder::new()
+            .clear_targets()
+            .target(Target::new(TargetKind::LogDir {
+                file_name: Some("fliptrix".into()),
+            }))
+            .level(log::LevelFilter::Trace)
+            .max_file_size(1_000_000)
+            .rotation_strategy(RotationStrategy::KeepSome(5))
+            .timezone_strategy(TimezoneStrategy::UseLocal)
+            .filter(should_emit_log);
+
+        #[cfg(debug_assertions)]
+        let builder = builder.target(Target::new(TargetKind::Stdout));
+
+        builder.build()
     };
 
     tauri::Builder::default()
+        .plugin(log_plugin)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -673,6 +754,7 @@ pub fn run() {
             set_settings,
             get_autostart_enabled,
             set_autostart_enabled,
+            open_logs_directory,
         ])
         .setup(move |app| {
             // Resolve the app data directory for cache file I/O.
@@ -702,6 +784,29 @@ pub fn run() {
                 ..config
             };
             let poll_interval_final = Duration::from_secs(lifecycle_config.poll_interval_secs);
+
+            set_debug_logging_enabled(stored_settings.debug_logging_enabled);
+            log::info!(
+                "debug logging {}",
+                if stored_settings.debug_logging_enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                }
+            );
+
+            // Try to create the platform idle provider. Log and continue if it
+            // fails (e.g. headless server, Wayland-only session).
+            let idle_provider: Option<Box<dyn IdleProvider>> = match idle::create_idle_provider() {
+                Ok(provider) => {
+                    log::info!("idle detection initialized");
+                    Some(provider)
+                }
+                Err(e) => {
+                    log::warn!("idle detection unavailable: {e}");
+                    None
+                }
+            };
 
             let app_state = AppState {
                 lifecycle: Mutex::new(LifecycleMachine::new(lifecycle_config)),
