@@ -74,6 +74,59 @@ describe("initSettingsUi", () => {
     expect(root.querySelector("#test-both-btn")?.textContent).toContain("Test Both now");
   });
 
+  it("renders X data rows as aligned FlipFlap and Matrix columns", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const xDataPanel = Array.from(root.querySelectorAll<HTMLElement>("fieldset.panel")).find(
+      (panel) => panel.querySelector("legend")?.textContent?.trim() === "X data",
+    );
+    if (!xDataPanel) throw new Error("missing x data panel");
+
+    const rows = xDataPanel.querySelectorAll<HTMLElement>(".field-row");
+    expect(rows).toHaveLength(4);
+
+    const labelsForRow = (row: Element): string[] =>
+      Array.from(
+        row.querySelectorAll<HTMLElement>(".field-label"),
+        (label) => label.textContent?.trim() ?? "",
+      );
+
+    expect(labelsForRow(rows[0])).toEqual(["FlipFlap accounts", "Matrix accounts"]);
+    expect(labelsForRow(rows[1])).toEqual(["FlipFlap search query", "Matrix search query"]);
+    expect(labelsForRow(rows[2])).toEqual([
+      "FlipFlap time window (hours)",
+      "Matrix time window (hours)",
+    ]);
+    expect(labelsForRow(rows[3])).toEqual([
+      "FlipFlap truncation (chars)",
+      "Matrix truncation (chars)",
+    ]);
+  });
+
+  it("shows save confirmation near action buttons", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const form = root.querySelector<HTMLFormElement>("#settings-form");
+    const topFeedback = root.querySelector<HTMLElement>("#settings-feedback");
+    const saveFeedback = root.querySelector<HTMLElement>("#settings-save-feedback");
+    if (!form || !topFeedback || !saveFeedback) throw new Error("missing save form controls");
+
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(saveSettingsMock).toHaveBeenCalled();
+    expect(saveFeedback.hidden).toBe(false);
+    expect(saveFeedback.textContent).toContain("Settings saved.");
+    expect(topFeedback.hidden).toBe(true);
+  });
+
   it("saves matrix mode and activates the screensaver when testing Matrix", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");
