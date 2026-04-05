@@ -114,88 +114,110 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
           </div>
         </fieldset>
 
-        <!-- FlipFlap -->
+        <!-- Renderers -->
         <fieldset class="panel">
-          <legend>FlipFlap renderer</legend>
+          <legend>Renderers</legend>
 
-          <div class="field-row">
+          <div class="renderer-tabs" role="tablist" aria-label="Renderer settings">
+            <button
+              type="button"
+              id="renderer-tab-flipflap"
+              class="renderer-tab renderer-tab--active"
+              role="tab"
+              aria-selected="true"
+              aria-controls="renderer-tab-panel-flipflap"
+            >
+              FlipFlap
+            </button>
+            <button
+              type="button"
+              id="renderer-tab-matrix"
+              class="renderer-tab"
+              role="tab"
+              aria-selected="false"
+              aria-controls="renderer-tab-panel-matrix"
+            >
+              Matrix
+            </button>
+          </div>
+
+          <div id="renderer-tab-panel-flipflap" class="renderer-tab-panel" role="tabpanel" aria-labelledby="renderer-tab-flipflap">
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">Rows</span>
+                <input type="number" name="flipflap_rows" min="1" max="32"
+                  value="${s.flipflap_rows}" />
+                <span class="field-hint">Default: 8</span>
+              </label>
+              <label class="field">
+                <span class="field-label">Columns</span>
+                <input type="number" name="flipflap_cols" min="1" max="120"
+                  value="${s.flipflap_cols}" />
+                <span class="field-hint">Default: 40</span>
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">Tick (ms)</span>
+                <input type="number" name="flipflap_tick_ms" min="5" max="500"
+                  value="${s.flipflap_tick_ms}" />
+                <span class="field-hint">Animation speed. Default: 80</span>
+              </label>
+              <label class="field">
+                <span class="field-label">Post rotation (seconds)</span>
+                <input type="number" name="flipflap_rotation_secs" min="5" max="300"
+                  value="${s.flipflap_rotation_secs}" />
+                <span class="field-hint">Default: 20</span>
+              </label>
+            </div>
+
             <label class="field">
-              <span class="field-label">Rows</span>
-              <input type="number" name="flipflap_rows" min="1" max="32"
-                value="${s.flipflap_rows}" />
-              <span class="field-hint">Default: 8</span>
-            </label>
-            <label class="field">
-              <span class="field-label">Columns</span>
-              <input type="number" name="flipflap_cols" min="1" max="120"
-                value="${s.flipflap_cols}" />
-              <span class="field-hint">Default: 40</span>
+              <span class="field-label">Sound volume (0 – 1)</span>
+              <input type="range" name="flipflap_volume" min="0" max="1" step="0.05"
+                value="${s.flipflap_volume}" />
+              <output class="range-output" for="flipflap_volume">${s.flipflap_volume.toFixed(2)}</output>
             </label>
           </div>
 
-          <div class="field-row">
-            <label class="field">
-              <span class="field-label">Tick (ms)</span>
-              <input type="number" name="flipflap_tick_ms" min="5" max="500"
-                value="${s.flipflap_tick_ms}" />
-              <span class="field-hint">Animation speed. Default: 80</span>
-            </label>
+          <div id="renderer-tab-panel-matrix" class="renderer-tab-panel" role="tabpanel" aria-labelledby="renderer-tab-matrix" hidden>
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">Font size (px)</span>
+                <input type="number" name="matrix_font_size" min="8" max="48"
+                  value="${s.matrix_font_size}" />
+                <span class="field-hint">Default: 24</span>
+              </label>
+              <label class="field">
+                <span class="field-label">Spawn density (0 – 1)</span>
+                <input type="number" name="matrix_spawn_density" min="0" max="1" step="0.01"
+                  value="${s.matrix_spawn_density}" />
+                <span class="field-hint">Default: 0.5</span>
+              </label>
+            </div>
+
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">Glow intensity (px blur)</span>
+                <input type="number" name="matrix_glow_intensity" min="0" max="30"
+                  value="${s.matrix_glow_intensity}" />
+                <span class="field-hint">Default: 12</span>
+              </label>
+              <label class="field">
+                <span class="field-label">Tick (ms)</span>
+                <input type="number" name="matrix_tick_ms" min="10" max="500"
+                  value="${s.matrix_tick_ms}" />
+                <span class="field-hint">Animation speed. Default: 40</span>
+              </label>
+            </div>
+
             <label class="field">
               <span class="field-label">Post rotation (seconds)</span>
-              <input type="number" name="flipflap_rotation_secs" min="5" max="300"
-                value="${s.flipflap_rotation_secs}" />
-              <span class="field-hint">Default: 20</span>
+              <input type="number" name="matrix_post_rotation_secs" min="5" max="300"
+                value="${s.matrix_post_rotation_secs}" />
+              <span class="field-hint">Default: 15</span>
             </label>
           </div>
-
-          <label class="field">
-            <span class="field-label">Sound volume (0 – 1)</span>
-            <input type="range" name="flipflap_volume" min="0" max="1" step="0.05"
-              value="${s.flipflap_volume}" />
-            <output class="range-output" for="flipflap_volume">${s.flipflap_volume.toFixed(2)}</output>
-          </label>
-        </fieldset>
-
-        <!-- Matrix -->
-        <fieldset class="panel">
-          <legend>Matrix renderer</legend>
-
-          <div class="field-row">
-            <label class="field">
-              <span class="field-label">Font size (px)</span>
-              <input type="number" name="matrix_font_size" min="8" max="48"
-                value="${s.matrix_font_size}" />
-              <span class="field-hint">Default: 24</span>
-            </label>
-            <label class="field">
-              <span class="field-label">Spawn density (0 – 1)</span>
-              <input type="number" name="matrix_spawn_density" min="0" max="1" step="0.01"
-                value="${s.matrix_spawn_density}" />
-              <span class="field-hint">Default: 0.5</span>
-            </label>
-          </div>
-
-          <div class="field-row">
-            <label class="field">
-              <span class="field-label">Glow intensity (px blur)</span>
-              <input type="number" name="matrix_glow_intensity" min="0" max="30"
-                value="${s.matrix_glow_intensity}" />
-              <span class="field-hint">Default: 12</span>
-            </label>
-            <label class="field">
-              <span class="field-label">Tick (ms)</span>
-              <input type="number" name="matrix_tick_ms" min="10" max="500"
-                value="${s.matrix_tick_ms}" />
-              <span class="field-hint">Animation speed. Default: 40</span>
-            </label>
-          </div>
-
-          <label class="field">
-            <span class="field-label">Post rotation (seconds)</span>
-            <input type="number" name="matrix_post_rotation_secs" min="5" max="300"
-              value="${s.matrix_post_rotation_secs}" />
-            <span class="field-hint">Default: 15</span>
-          </label>
         </fieldset>
 
         <!-- X Data -->
@@ -349,6 +371,9 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   const modeSelect = form.querySelector<HTMLSelectElement>('[name="mode"]');
   modeSelect?.addEventListener("change", () => syncModeSwitchVisibility(form));
 
+  // Renderer tabs.
+  wireRendererTabs(root);
+
   // Live-update the volume range output label.
   const volumeRange = form.querySelector<HTMLInputElement>('[name="flipflap_volume"]');
   const volumeOutput = form.querySelector<HTMLOutputElement>(".range-output");
@@ -406,7 +431,7 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
       showFeedback(
         saveFeedback,
         "error",
-        `Failed to save: $err instanceof Error ? err.message : String(err)`,
+        `Failed to save: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   });
@@ -560,8 +585,35 @@ function syncModeSwitchVisibility(form: HTMLFormElement): void {
   switchIntervalField.style.display = modeSelect.value === "both" ? "" : "none";
 }
 
+function wireRendererTabs(root: HTMLElement): void {
+  const flipTab = root.querySelector<HTMLButtonElement>("#renderer-tab-flipflap");
+  const matrixTab = root.querySelector<HTMLButtonElement>("#renderer-tab-matrix");
+  const flipPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-flipflap");
+  const matrixPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-matrix");
+
+  if (!flipTab || !matrixTab || !flipPanel || !matrixPanel) {
+    return;
+  }
+
+  const activate = (mode: "flipflap" | "matrix") => {
+    const flipActive = mode === "flipflap";
+
+    flipTab.setAttribute("aria-selected", flipActive ? "true" : "false");
+    matrixTab.setAttribute("aria-selected", flipActive ? "false" : "true");
+
+    flipTab.classList.toggle("renderer-tab--active", flipActive);
+    matrixTab.classList.toggle("renderer-tab--active", !flipActive);
+
+    flipPanel.hidden = !flipActive;
+    matrixPanel.hidden = flipActive;
+  };
+
+  flipTab.addEventListener("click", () => activate("flipflap"));
+  matrixTab.addEventListener("click", () => activate("matrix"));
+}
+
 function showFeedback(el: HTMLElement, type: "success" | "error" | "info", message: string): void {
-  el.className = `settings-feedback settings-feedback--$type`;
+  el.className = `settings-feedback settings-feedback--${type}`;
   el.textContent = message;
   el.hidden = false;
 
@@ -641,7 +693,7 @@ function wireRefreshPosts(root: HTMLElement): void {
       status.textContent = "Posts refreshed.";
     } catch (err) {
       logError("Post refresh failed", err);
-      status.textContent = `Error: $err instanceof Error ? err.message : String(err)`;
+      status.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
     } finally {
       btn.disabled = false;
     }
@@ -659,13 +711,13 @@ function wireOpenLogsButton(root: HTMLElement, feedback: HTMLElement): void {
     try {
       const path = await openLogsDirectory();
       logInfo("Opened logs directory", { path });
-      showFeedback(feedback, "info", `Opened logs folder: $path`);
+      showFeedback(feedback, "info", `Opened logs folder: ${path}`);
     } catch (err) {
       logError("Failed to open logs directory", err);
       showFeedback(
         feedback,
         "error",
-        `Failed to open logs folder: $err instanceof Error ? err.message : String(err)`,
+        `Failed to open logs folder: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       button.disabled = false;

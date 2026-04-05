@@ -112,6 +112,48 @@ describe("initSettingsUi", () => {
     expect(root.querySelector("#open-logs-btn")?.textContent).toContain("Open logs folder");
   });
 
+  it("defaults renderer tabs to FlipFlap", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const flipTab = root.querySelector<HTMLButtonElement>("#renderer-tab-flipflap");
+    const matrixTab = root.querySelector<HTMLButtonElement>("#renderer-tab-matrix");
+    const flipPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-flipflap");
+    const matrixPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-matrix");
+    if (!flipTab || !matrixTab || !flipPanel || !matrixPanel) {
+      throw new Error("missing renderer tab controls");
+    }
+
+    expect(flipTab.getAttribute("aria-selected")).toBe("true");
+    expect(matrixTab.getAttribute("aria-selected")).toBe("false");
+    expect(flipPanel.hidden).toBe(false);
+    expect(matrixPanel.hidden).toBe(true);
+  });
+
+  it("switches renderer tab content to Matrix", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const flipTab = root.querySelector<HTMLButtonElement>("#renderer-tab-flipflap");
+    const matrixTab = root.querySelector<HTMLButtonElement>("#renderer-tab-matrix");
+    const flipPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-flipflap");
+    const matrixPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-matrix");
+    if (!flipTab || !matrixTab || !flipPanel || !matrixPanel) {
+      throw new Error("missing renderer tab controls");
+    }
+
+    matrixTab.click();
+
+    expect(flipTab.getAttribute("aria-selected")).toBe("false");
+    expect(matrixTab.getAttribute("aria-selected")).toBe("true");
+    expect(flipPanel.hidden).toBe(true);
+    expect(matrixPanel.hidden).toBe(false);
+  });
+
   it("renders X data rows as aligned FlipFlap and Matrix columns", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");
