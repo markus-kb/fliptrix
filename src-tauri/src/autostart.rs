@@ -20,6 +20,22 @@
 
 use std::path::{Path, PathBuf};
 
+const E2E_AUTOSTART_DIR_ENV: &str = "FLIPTRIX_E2E_AUTOSTART_DIR";
+
+fn autostart_dir_override() -> Option<PathBuf> {
+    match std::env::var(E2E_AUTOSTART_DIR_ENV) {
+        Ok(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(PathBuf::from(trimmed))
+            }
+        }
+        Err(_) => None,
+    }
+}
+
 /// Error returned by autostart operations.
 #[derive(Debug, PartialEq)]
 pub struct AutostartError(pub String);
@@ -118,6 +134,10 @@ pub fn is_autostart_enabled(app_id: &str) -> bool {
 
 #[cfg(target_os = "linux")]
 fn linux_autostart_dir() -> Result<PathBuf, AutostartError> {
+    if let Some(override_dir) = autostart_dir_override() {
+        return Ok(override_dir);
+    }
+
     // Prefer XDG_CONFIG_HOME if set; fall back to $HOME/.config.
     // Using only env vars avoids the dirs/dirs-next dependency while
     // remaining fully correct per the XDG Base Directory specification.
@@ -175,6 +195,10 @@ fn linux_disable_autostart(app_id: &str) -> Result<(), AutostartError> {
 
 #[cfg(target_os = "windows")]
 fn windows_startup_dir() -> Result<PathBuf, AutostartError> {
+    if let Some(override_dir) = autostart_dir_override() {
+        return Ok(override_dir);
+    }
+
     // APPDATA is always set on Windows for interactive users.
     let appdata = std::env::var("APPDATA")
         .map_err(|_| AutostartError("APPDATA environment variable not set".into()))?;
@@ -224,6 +248,7 @@ fn windows_disable_autostart(app_id: &str) -> Result<(), AutostartError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "linux")]
     use std::path::Path;
     use std::sync::Mutex;
 
@@ -231,7 +256,20 @@ mod tests {
     // parallel test threads on this process-global environment variable.
     static XDG_LOCK: Mutex<()> = Mutex::new(());
 
+    fn set_env_var(key: &str, value: &std::path::Path) {
+        unsafe {
+            std::env::set_var(key, value);
+        }
+    }
+
+    fn remove_env_var(key: &str) {
+        unsafe {
+            std::env::remove_var(key);
+        }
+    }
+
     // Helper: a fake executable path for tests.
+    #[cfg(target_os = "linux")]
     fn fake_exe() -> PathBuf {
         PathBuf::from("/usr/local/bin/fliptrix")
     }
@@ -243,6 +281,18 @@ mod tests {
             path.to_string_lossy().contains("fliptrix"),
             "path should contain app_id component"
         );
+    }
+
+    #[test]
+    fn test_autostart_path_uses_override_directory() {
+        let _guard = XDG_LOCK.lock().unwrap();
+        let tmp = tempfile::TempDir::new().unwrap();
+        set_env_var(E2E_AUTOSTART_DIR_ENV, tmp.path());
+
+        let path = autostart_path("test.fliptrix.override").unwrap();
+        assert!(path.starts_with(tmp.path()));
+
+        remove_env_var(E2E_AUTOSTART_DIR_ENV);
     }
 
     #[cfg(target_os = "linux")]
@@ -261,7 +311,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         // Override XDG_CONFIG_HOME to a temp directory so we don't pollute
         // the real user config.
-        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        set_env_var("XDG_CONFIG_HOME", tmp.path());
 
         let app_id = "test.fliptrix.autostart";
         enable_autostart(app_id, &fake_exe()).unwrap();
@@ -287,7 +337,7 @@ mod tests {
         // Disable again is idempotent.
         disable_autostart(app_id).unwrap();
 
-        std::env::remove_var("XDG_CONFIG_HOME");
+        remove_env_var("XDG_CONFIG_HOME");
     }
 
     #[cfg(target_os = "linux")]
@@ -297,7 +347,7 @@ mod tests {
 
         let _guard = XDG_LOCK.lock().unwrap();
         let tmp = TempDir::new().unwrap();
-        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        set_env_var("XDG_CONFIG_HOME", tmp.path());
 
         let app_id = "test.fliptrix.format";
         enable_autostart(app_id, Path::new("/opt/fliptrix/fliptrix")).unwrap();
@@ -310,7 +360,7 @@ mod tests {
         assert!(content.contains("X-GNOME-Autostart-enabled=true"));
         assert!(content.contains("Exec=/opt/fliptrix/fliptrix"));
 
-        std::env::remove_var("XDG_CONFIG_HOME");
+        remove_env_var("XDG_CONFIG_HOME");
     }
 
     #[cfg(target_os = "linux")]
@@ -320,10 +370,10 @@ mod tests {
 
         let _guard = XDG_LOCK.lock().unwrap();
         let tmp = TempDir::new().unwrap();
-        std::env::set_var("XDG_CONFIG_HOME", tmp.path());
+        set_env_var("XDG_CONFIG_HOME", tmp.path());
 
         assert!(!is_autostart_enabled("test.fliptrix.absent"));
 
-        std::env::remove_var("XDG_CONFIG_HOME");
+        remove_env_var("XDG_CONFIG_HOME");
     }
 }

@@ -13,7 +13,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "e2e:generic": "node --test --test-concurrency=1 e2e/generic/**/*.test.mjs",
+    "e2e:windows": "node --test --test-concurrency=1 e2e/windows/**/*.test.mjs",
+    "e2e:linux": "node --test --test-concurrency=1 e2e/linux/**/*.test.mjs",
+    "verify:windows": "corepack pnpm test && cargo test --manifest-path src-tauri/Cargo.toml && corepack pnpm e2e:generic && corepack pnpm e2e:windows",
+    "verify:linux": "corepack pnpm test && cargo test --manifest-path src-tauri/Cargo.toml && corepack pnpm e2e:generic && corepack pnpm e2e:linux"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -26,6 +31,7 @@
     "jsdom": "^29.0.1",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.2",
+    "webdriverio": "^9.20.0"
   }
 }
