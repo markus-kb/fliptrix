@@ -119,5 +119,15 @@ export async function moveMouseBeyondDeadZone(browser) {
       ],
     },
   ]);
-  await browser.releaseActions();
+  try {
+    await browser.releaseActions();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("no such window") || error.message.includes("invalid session id"))
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
