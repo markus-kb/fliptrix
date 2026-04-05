@@ -19,7 +19,7 @@ test("persists saved settings across app sessions", async () => {
   try {
     await setFieldValue(firstSession, '[name="idle_timeout_secs"]', "321");
     await clickButton(firstSession, 'button[type="submit"]');
-    await waitForElementText(firstSession, "#settings-feedback", "Settings saved.");
+    await waitForElementText(firstSession, "#settings-save-feedback", "Settings saved.");
   } finally {
     await harness.closeSession(firstSession);
   }
