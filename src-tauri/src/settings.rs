@@ -88,6 +88,18 @@ pub struct AppSettings {
     #[serde(default = "default_flipflap_volume")]
     pub flipflap_volume: f64,
 
+    /// Optional filename from `src/assets/bg` used as FlipFlap background.
+    #[serde(default)]
+    pub flipflap_background_image: Option<String>,
+
+    /// Enables the subtle background drift animation in FlipFlap mode.
+    #[serde(default = "default_flipflap_background_animation_enabled")]
+    pub flipflap_background_animation_enabled: bool,
+
+    /// Speed multiplier for FlipFlap background drift (default: 1.0).
+    #[serde(default = "default_flipflap_background_swirl_speed")]
+    pub flipflap_background_swirl_speed: f64,
+
     /// X accounts whose posts should appear in FlipFlap mode.
     #[serde(default)]
     pub flipflap_accounts: Vec<String>,
@@ -177,6 +189,12 @@ fn default_flipflap_rotation_secs() -> u64 {
 fn default_flipflap_volume() -> f64 {
     0.6
 }
+fn default_flipflap_background_animation_enabled() -> bool {
+    true
+}
+fn default_flipflap_background_swirl_speed() -> f64 {
+    1.0
+}
 fn default_flipflap_time_window_hours() -> u64 {
     24
 }
@@ -227,6 +245,9 @@ impl Default for AppSettings {
             flipflap_tick_ms: default_flipflap_tick_ms(),
             flipflap_rotation_secs: default_flipflap_rotation_secs(),
             flipflap_volume: default_flipflap_volume(),
+            flipflap_background_image: None,
+            flipflap_background_animation_enabled: default_flipflap_background_animation_enabled(),
+            flipflap_background_swirl_speed: default_flipflap_background_swirl_speed(),
             flipflap_accounts: Vec::new(),
             flipflap_search_query: String::new(),
             flipflap_time_window_hours: default_flipflap_time_window_hours(),
@@ -336,6 +357,9 @@ impl AppSettings {
         if !(0.0..=1.0).contains(&self.flipflap_volume) {
             return Err("flipflap_volume must be 0.0–1.0".into());
         }
+        if !(0.1..=3.0).contains(&self.flipflap_background_swirl_speed) {
+            return Err("flipflap_background_swirl_speed must be 0.1–3.0".into());
+        }
         if self.flipflap_time_window_hours == 0 {
             return Err("flipflap_time_window_hours must be > 0".into());
         }
@@ -419,6 +443,9 @@ mod tests {
         assert_eq!(settings.flipflap_rows, 8);
         assert_eq!(settings.flipflap_cols, 40);
         assert_eq!(settings.flipflap_tick_ms, 80);
+        assert_eq!(settings.flipflap_background_image, None);
+        assert!(settings.flipflap_background_animation_enabled);
+        assert!((settings.flipflap_background_swirl_speed - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -489,6 +516,15 @@ mod tests {
         s.flipflap_volume = 1.1;
         assert!(s.validate().is_err());
         s.flipflap_volume = -0.1;
+        assert!(s.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_rejects_background_swirl_speed_out_of_range() {
+        let mut s = AppSettings::default();
+        s.flipflap_background_swirl_speed = 0.09;
+        assert!(s.validate().is_err());
+        s.flipflap_background_swirl_speed = 3.1;
         assert!(s.validate().is_err());
     }
 

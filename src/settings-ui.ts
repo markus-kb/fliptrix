@@ -462,6 +462,16 @@ function readFormValues(form: HTMLFormElement, fallback: AppSettings): AppSettin
     flipflap_tick_ms: num("flipflap_tick_ms", fallback.flipflap_tick_ms),
     flipflap_rotation_secs: num("flipflap_rotation_secs", fallback.flipflap_rotation_secs),
     flipflap_volume: num("flipflap_volume", fallback.flipflap_volume),
+    flipflap_background_image:
+      str("flipflap_background_image", fallback.flipflap_background_image ?? "") || null,
+    flipflap_background_animation_enabled: bool(
+      "flipflap_background_animation_enabled",
+      fallback.flipflap_background_animation_enabled,
+    ),
+    flipflap_background_swirl_speed: num(
+      "flipflap_background_swirl_speed",
+      fallback.flipflap_background_swirl_speed,
+    ),
     flipflap_accounts: parseAccountsField(
       str("flipflap_accounts", formatAccountsField(fallback.flipflap_accounts)),
     ),
@@ -498,6 +508,8 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     flipflap_tick_ms: s.flipflap_tick_ms,
     flipflap_rotation_secs: s.flipflap_rotation_secs,
     flipflap_volume: s.flipflap_volume,
+    flipflap_background_image: s.flipflap_background_image ?? "",
+    flipflap_background_swirl_speed: s.flipflap_background_swirl_speed,
     flipflap_search_query: s.flipflap_search_query,
     flipflap_time_window_hours: s.flipflap_time_window_hours,
     flipflap_truncation_chars: s.flipflap_truncation_chars,
@@ -530,6 +542,13 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
   const debugLoggingCheckbox = form.querySelector<HTMLInputElement>("#debug-logging-checkbox");
   if (debugLoggingCheckbox) {
     debugLoggingCheckbox.checked = s.debug_logging_enabled;
+  }
+
+  const backgroundAnimationCheckbox = form.querySelector<HTMLInputElement>(
+    '[name="flipflap_background_animation_enabled"]',
+  );
+  if (backgroundAnimationCheckbox) {
+    backgroundAnimationCheckbox.checked = s.flipflap_background_animation_enabled;
   }
 
   // Update the volume output label.
