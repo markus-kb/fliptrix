@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Capability for the main and screensaver windows",
   "windows": ["main", "screensaver-*"],
-  "permissions": ["core:default", "opener:default", "store:default"]
+  "permissions": ["core:default", "opener:default", "store:default", "log:default"]
 }
