@@ -60,8 +60,18 @@
 - prefer small, direct changes
 - match existing naming and file structure
 - add or update regression tests when behavior changes
+- follow strict Red -> Green -> Refactor TDD for all code changes
+- run the full end-to-end test suite before considering a task complete
+- smoke tests are not sufficient as final validation
 - use Biome for frontend formatting and `rustfmt` for Rust
 - avoid changing host dependency setup unless the problem is actually environmental
+
+## Test Policy
+
+- mandatory: strict Red -> Green -> Refactor cycle
+- mandatory: full automated end-to-end test run for final verification
+- do not report completion based only on smoke tests or partial/manual checks
+- if no e2e suite exists yet, explicitly state this as a validation gap before sign-off
 
 ## When Updating This File
 
