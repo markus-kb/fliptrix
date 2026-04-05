@@ -24,6 +24,12 @@ corepack pnpm install
 cargo install tauri-driver
 ```
 
+On Linux, also install the native WebKit driver:
+
+```bash
+sudo apt install webkit2gtk-driver
+```
+
 3. Build a Tauri binary (debug or release):
 
 ```bash
@@ -75,3 +81,15 @@ The test harness also sets these for deterministic execution:
 - No live X API calls during E2E runs.
 - No writes to real user autostart files.
 - Per-suite isolated app data and store file.
+
+## Headless Linux
+
+Linux E2E requires a real graphical session. On headless machines, the app may
+fail before WebDriver can create a session, typically with errors like
+`Failed to initialize GTK` or a timeout when creating the WebDriver session.
+
+If that happens, the next steps are:
+
+1. Confirm the native drivers are installed: `cargo install tauri-driver` and `sudo apt install webkit2gtk-driver`
+2. Verify the app launches directly: `src-tauri/target/debug/fliptrix`
+3. Run the suite inside a desktop session with `DISPLAY` or Wayland available, or provide a virtual display such as `xvfb`

@@ -33,6 +33,7 @@ sudo apt install pkg-config patchelf libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2
 
 - Install `tauri-driver` (`cargo install tauri-driver`)
 - Build the desktop app binary before running E2E tests
+- Linux: install `WebKitWebDriver` (Ubuntu package: `webkit2gtk-driver`)
 - Windows: install a matching WebDriver for your installed Edge version (for `tauri-driver`)
 
 ## Install
@@ -88,6 +89,16 @@ Build outputs are produced under `src-tauri/target/`.
 - Their caches are stored separately.
 - If no cached posts are available, the app falls back to demo content.
 
+### Logging
+
+- Logs are persisted to the app log directory via `tauri-plugin-log`.
+- Open the folder from Settings -> Diagnostics -> `Open logs folder`.
+- `Enable debug logs` increases verbosity for troubleshooting (off by default).
+- Sensitive values (like bearer tokens) are not logged.
+- Typical log locations:
+  - Windows: `%LOCALAPPDATA%\com.fliptrix.desktop\logs`
+  - Linux: `$XDG_DATA_HOME/com.fliptrix.desktop/logs` (or `~/.local/share/com.fliptrix.desktop/logs`)
+
 ## Quality Checks
 
 Frontend:
@@ -133,6 +144,11 @@ Notes:
 
 - Multi-monitor behavior is intentionally out of scope for current E2E tests
 - E2E runs are deterministic and do not call live X APIs
+- Linux E2E requires a real graphical session. On headless machines, Tauri/WebKitGTK may fail with `Failed to initialize GTK` or WebDriver session timeouts.
+- If Linux E2E is blocked by a headless environment, the next steps are:
+- install the native drivers: `cargo install tauri-driver` and `sudo apt install webkit2gtk-driver`
+- run the tests inside a desktop session with `DISPLAY` or Wayland available, or provide a virtual display such as `xvfb`
+- verify the app launches directly before retrying E2E: `src-tauri/target/debug/fliptrix`
 
 ## Useful Commands
 

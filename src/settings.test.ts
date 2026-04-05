@@ -15,6 +15,10 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.mouse_dead_zone_px).toBe(5);
   });
 
+  it("keeps debug logging disabled by default", () => {
+    expect(DEFAULT_SETTINGS.debug_logging_enabled).toBe(false);
+  });
+
   it("has expected FlipFlap defaults", () => {
     expect(DEFAULT_SETTINGS.flipflap_rows).toBe(8);
     expect(DEFAULT_SETTINGS.flipflap_cols).toBe(40);
