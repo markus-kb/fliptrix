@@ -215,6 +215,24 @@ export interface PostEntry {
 }
 
 /**
+ * Select exactly one post for the current FlipFlap rotation index.
+ *
+ * FlipFlap intentionally shows one post per board cycle so users get a stable
+ * readable hold period before the next mechanical transition starts.
+ */
+export function selectFlipFlapPost(
+  posts: (string | PostEntry)[],
+  postIndex: number,
+): (string | PostEntry)[] {
+  if (posts.length === 0) {
+    return [];
+  }
+
+  const normalizedIndex = ((postIndex % posts.length) + posts.length) % posts.length;
+  return [posts[normalizedIndex]];
+}
+
+/**
  * Format posts for display on the split-flap board.
  *
  * Each post becomes one or more lines (word-wrapped at `cols`). Posts are

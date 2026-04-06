@@ -27,11 +27,19 @@ after(async () => {
 
 async function configureAndRefresh(
   browser,
-  { flipflapQuery, matrixQuery, matrixRotationSecs = "1" },
+  {
+    flipflapQuery,
+    matrixQuery,
+    flipflapAccounts = "",
+    matrixAccounts = "",
+    matrixRotationSecs = "1",
+  },
 ) {
   await clickButton(browser, "#renderer-tab-matrix");
 
   await setFieldValue(browser, '[name="mouse_dead_zone_px"]', "9999");
+  await setFieldValue(browser, '[name="flipflap_accounts"]', flipflapAccounts);
+  await setFieldValue(browser, '[name="matrix_accounts"]', matrixAccounts);
   await setFieldValue(browser, '[name="flipflap_search_query"]', flipflapQuery);
   await setFieldValue(browser, '[name="matrix_search_query"]', matrixQuery);
   await setFieldValue(browser, '[name="matrix_post_rotation_secs"]', matrixRotationSecs);
@@ -84,6 +92,7 @@ test("flipflap preview exposes rendered X post content", async () => {
     await configureAndRefresh(browser, {
       flipflapQuery: "ffv2e",
       matrixQuery: "matrix-unused",
+      flipflapAccounts: "alpha\nbeta",
     });
 
     await clickButton(browser, "#test-flipflap-btn");
@@ -102,6 +111,7 @@ test("flipflap preview exposes rendered X post content", async () => {
       return canvas?.getAttribute("data-rendered-posts") ?? "";
     });
     assert.match(String(renderedPosts), /ffv2e/i);
+    assert.doesNotMatch(String(renderedPosts), /timeline from/i);
 
     await pressEscape(browser);
     await waitForNoWindowWithSelector(browser, "#screensaver-canvas", 20_000);

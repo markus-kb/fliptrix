@@ -7,6 +7,7 @@ import {
   MATRIX_GLYPH_PIXEL_SCALE,
   MATRIX_GREEN_PALETTE,
   type MatrixConfig,
+  PACKET_RGB,
 } from "./matrix-renderer";
 
 // ---------------------------------------------------------------------------
@@ -162,6 +163,12 @@ describe("MATRIX_GREEN_PALETTE", () => {
 
     expect(head[1]).toBeGreaterThan(head[0]);
     expect(head[1]).toBeGreaterThan(head[2]);
+  });
+});
+
+describe("PACKET_RGB", () => {
+  it("uses a warmer high-contrast tint for tweet packets", () => {
+    expect(PACKET_RGB).toEqual([245, 232, 170]);
   });
 });
 

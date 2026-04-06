@@ -184,7 +184,7 @@ fn default_flipflap_tick_ms() -> u64 {
     80
 }
 fn default_flipflap_rotation_secs() -> u64 {
-    20
+    6
 }
 fn default_flipflap_volume() -> f64 {
     0.6
@@ -446,6 +446,7 @@ mod tests {
         assert_eq!(settings.flipflap_background_image, None);
         assert!(settings.flipflap_background_animation_enabled);
         assert!((settings.flipflap_background_swirl_speed - 1.0).abs() < f64::EPSILON);
+        assert_eq!(settings.flipflap_rotation_secs, 6);
     }
 
     #[test]

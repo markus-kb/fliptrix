@@ -66,7 +66,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   flipflap_rows: 8,
   flipflap_cols: 40,
   flipflap_tick_ms: 80,
-  flipflap_rotation_secs: 20,
+  flipflap_rotation_secs: 6,
   flipflap_volume: 0.6,
   flipflap_background_image: null,
   flipflap_background_animation_enabled: true,

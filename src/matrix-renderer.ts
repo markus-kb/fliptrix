@@ -145,7 +145,7 @@ export const MATRIX_GREEN_PALETTE: ReadonlyArray<readonly [number, number, numbe
   [88, 224, 128],
   [154, 242, 182],
 ];
-const PACKET_RGB: readonly [number, number, number] = [118, 232, 150];
+export const PACKET_RGB: readonly [number, number, number] = [245, 232, 170];
 const TRAIL_VOID_RGB = MATRIX_GREEN_PALETTE[0];
 const TRAIL_DIM_RGB = MATRIX_GREEN_PALETTE[1];
 const TRAIL_MID_RGB = MATRIX_GREEN_PALETTE[3];

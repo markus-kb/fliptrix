@@ -11,6 +11,7 @@ describe("DEFAULT_FLIPFLAP_CONFIG", () => {
     expect(DEFAULT_FLIPFLAP_CONFIG.rows).toBe(8);
     expect(DEFAULT_FLIPFLAP_CONFIG.cols).toBe(40);
     expect(DEFAULT_FLIPFLAP_CONFIG.tickIntervalMs).toBe(80);
+    expect(DEFAULT_FLIPFLAP_CONFIG.postRotationSec).toBe(6);
     expect(DEFAULT_FLIPFLAP_CONFIG.backgroundImageUrl).toBeNull();
     expect(DEFAULT_FLIPFLAP_CONFIG.backgroundAnimationEnabled).toBe(true);
     expect(DEFAULT_FLIPFLAP_CONFIG.backgroundSwirlSpeed).toBe(1);

@@ -19,6 +19,7 @@ import {
   createBoard,
   formatPostsForBoard,
   isBoardSettled,
+  selectFlipFlapPost,
   setTargetText,
 } from "./flipflap-state";
 
@@ -44,12 +45,12 @@ export interface FlipFlapConfig {
   onVisibleLinesChange?: (lines: string[]) => void;
 }
 
-/** Sensible defaults matching the PRD (8x40 board, 20s rotation). */
+/** Sensible defaults matching the PRD (8x40 board, 6s rotation). */
 export const DEFAULT_FLIPFLAP_CONFIG: FlipFlapConfig = {
   rows: 8,
   cols: 40,
   tickIntervalMs: 80,
-  postRotationSec: 20,
+  postRotationSec: 6,
   audio: null, // Populated by FlipFlapRenderer from default audio config
   backgroundImageUrl: null,
   backgroundAnimationEnabled: true,
@@ -228,11 +229,7 @@ export class FlipFlapRenderer {
   }
 
   private advancePostWindow(): void {
-    // Advance by `rows` posts worth to fill the next board
-    this.postIndex += this.config.rows;
-    if (this.postIndex >= this.posts.length) {
-      this.postIndex = 0;
-    }
+    this.postIndex = (this.postIndex + 1) % this.posts.length;
     this.showCurrentPosts();
   }
 
@@ -242,8 +239,8 @@ export class FlipFlapRenderer {
       return;
     }
 
-    // Select a window of posts to display
-    const windowPosts = this.posts.slice(this.postIndex, this.postIndex + this.config.rows);
+    // FlipFlap intentionally shows one post per rotation window.
+    const windowPosts = selectFlipFlapPost(this.posts, this.postIndex);
 
     const lines = formatPostsForBoard(windowPosts, this.config.rows, this.config.cols);
     setTargetText(this.board, lines);

@@ -8,6 +8,7 @@ import {
   createBoard,
   formatPostsForBoard,
   isBoardSettled,
+  selectFlipFlapPost,
   setTargetText,
   stepsToTarget,
 } from "./flipflap-state";
@@ -317,5 +318,54 @@ describe("formatPostsForBoard", () => {
     const lines = formatPostsForBoard([{ text: "Hello", author: "@user" }], 4, 40);
     expect(lines[0]).toContain("@user");
     expect(lines.join("\n")).toContain("Hello");
+  });
+
+  it("fills the board with a single post before truncating overflow", () => {
+    const rows = 2;
+    const cols = 5;
+    const capacity = rows * cols;
+    const post = "ABCDEFGHIJKL"; // 12 chars, board capacity is 10
+
+    const lines = formatPostsForBoard([post], rows, cols);
+
+    const board = createBoard({ rows, cols });
+    setTargetText(board, lines);
+
+    const rendered = board.cells.flatMap((row) => row.map((cell) => cell.target)).join("");
+
+    expect(rendered).toBe(post.slice(0, capacity));
+  });
+
+  it("preserves all post characters when content fits within board capacity", () => {
+    const rows = 2;
+    const cols = 5;
+    const post = "ABCDEFGHI"; // 9 chars, board capacity is 10
+
+    const lines = formatPostsForBoard([post], rows, cols);
+
+    const board = createBoard({ rows, cols });
+    setTargetText(board, lines);
+
+    const rendered = board.cells.flatMap((row) => row.map((cell) => cell.target)).join("");
+
+    expect(rendered).toBe("ABCDEFGHI ");
+  });
+});
+
+describe("selectFlipFlapPost", () => {
+  it("returns only one post for the current index", () => {
+    const posts = ["first", "second", "third"];
+
+    expect(selectFlipFlapPost(posts, 1)).toEqual(["second"]);
+  });
+
+  it("wraps index when the post index exceeds the post count", () => {
+    const posts = ["first", "second", "third"];
+
+    expect(selectFlipFlapPost(posts, 4)).toEqual(["second"]);
+  });
+
+  it("returns empty list when no posts are available", () => {
+    expect(selectFlipFlapPost([], 0)).toEqual([]);
   });
 });
