@@ -28,6 +28,18 @@ import {
   withScreensaverMode,
 } from "./settings";
 
+interface CachedPostSummary {
+  author_username?: string;
+  created_at?: string;
+}
+
+interface CachedPostsEnvelope {
+  fetched_at?: string;
+  posts: CachedPostSummary[];
+}
+
+const cacheOverviewRequestByRoot = new WeakMap<HTMLElement, number>();
+
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
@@ -274,6 +286,26 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
           </button>
           <span id="refresh-status" class="field-hint"></span>
 
+          <div id="cache-overview" class="cache-overview" aria-live="polite">
+            <p id="cache-overview-summary" class="field-hint">Total cached posts: loading…</p>
+
+            <div class="cache-overview-columns">
+              <section class="cache-overview-mode">
+                <p id="cache-meta-flipflap" class="field-hint">FlipFlap cache: loading…</p>
+                <ul id="cache-list-flipflap" class="cache-overview-list">
+                  <li class="cache-overview-item cache-overview-item--empty">Loading…</li>
+                </ul>
+              </section>
+
+              <section class="cache-overview-mode">
+                <p id="cache-meta-matrix" class="field-hint">Matrix cache: loading…</p>
+                <ul id="cache-list-matrix" class="cache-overview-list">
+                  <li class="cache-overview-item cache-overview-item--empty">Loading…</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+
           <div class="field-row">
             <label class="field">
               <span class="field-label">FlipFlap accounts</span>
@@ -448,6 +480,7 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
 
   // Load API key status on startup.
   loadApiKeyStatus(root);
+  void loadCacheOverview(root);
 
   // Reset to defaults.
   const resetBtn = root.querySelector<HTMLButtonElement>("#reset-btn");
@@ -784,6 +817,7 @@ function wireRefreshPosts(root: HTMLElement): void {
       // Refresh both modes so both caches are populated.
       await invoke("fetch_posts", { mode: "matrix" });
       await invoke("fetch_posts", { mode: "flipflap" });
+      await loadCacheOverview(root);
       logInfo("Post refresh completed for both modes");
       status.textContent = "Posts refreshed.";
     } catch (err) {
@@ -883,4 +917,99 @@ async function loadApiKeyStatus(root: HTMLElement): Promise<void> {
     hint.textContent = "Status: unavailable";
     logWarn("API key status unavailable");
   }
+}
+
+async function loadCacheOverview(root: HTMLElement): Promise<void> {
+  const summary = root.querySelector<HTMLElement>("#cache-overview-summary");
+  const flipMeta = root.querySelector<HTMLElement>("#cache-meta-flipflap");
+  const matrixMeta = root.querySelector<HTMLElement>("#cache-meta-matrix");
+  const flipList = root.querySelector<HTMLUListElement>("#cache-list-flipflap");
+  const matrixList = root.querySelector<HTMLUListElement>("#cache-list-matrix");
+
+  if (!summary || !flipMeta || !matrixMeta || !flipList || !matrixList) {
+    return;
+  }
+
+  const requestId = (cacheOverviewRequestByRoot.get(root) ?? 0) + 1;
+  cacheOverviewRequestByRoot.set(root, requestId);
+
+  try {
+    const [flipCache, matrixCache] = await Promise.all([
+      invoke<CachedPostsEnvelope>("get_cached_posts", { mode: "flipflap" }),
+      invoke<CachedPostsEnvelope>("get_cached_posts", { mode: "matrix" }),
+    ]);
+
+    const flipCount = flipCache.posts.length;
+    const matrixCount = matrixCache.posts.length;
+    const totalCount = flipCount + matrixCount;
+
+    if (cacheOverviewRequestByRoot.get(root) !== requestId) {
+      return;
+    }
+
+    summary.textContent = `Total cached posts: ${totalCount} (FlipFlap: ${flipCount}, Matrix: ${matrixCount})`;
+    flipMeta.textContent = `FlipFlap cache: ${formatPostCount(flipCount)} (last fetch: ${formatDateTimeForUi(flipCache.fetched_at)})`;
+    matrixMeta.textContent = `Matrix cache: ${formatPostCount(matrixCount)} (last fetch: ${formatDateTimeForUi(matrixCache.fetched_at)})`;
+
+    renderCacheList(flipList, flipCache.posts);
+    renderCacheList(matrixList, matrixCache.posts);
+  } catch (err) {
+    if (cacheOverviewRequestByRoot.get(root) !== requestId) {
+      return;
+    }
+
+    summary.textContent = "Total cached posts: unavailable";
+    flipMeta.textContent = "FlipFlap cache: unavailable";
+    matrixMeta.textContent = "Matrix cache: unavailable";
+    renderUnavailableList(flipList);
+    renderUnavailableList(matrixList);
+    logWarn(`Failed to load cache overview: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+function formatPostCount(count: number): string {
+  return `${count} ${count === 1 ? "post" : "posts"}`;
+}
+
+function formatDateTimeForUi(value: string | undefined): string {
+  if (!value) {
+    return "unknown";
+  }
+
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.valueOf())) {
+    return "unknown";
+  }
+
+  return timestamp.toLocaleString();
+}
+
+function renderCacheList(target: HTMLUListElement, posts: CachedPostSummary[]): void {
+  target.replaceChildren();
+
+  if (posts.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "cache-overview-item cache-overview-item--empty";
+    empty.textContent = "No posts cached.";
+    target.append(empty);
+    return;
+  }
+
+  for (const post of posts) {
+    const handle = post.author_username?.trim() ? `@${post.author_username}` : "@unknown";
+    const sentAt = formatDateTimeForUi(post.created_at);
+
+    const item = document.createElement("li");
+    item.className = "cache-overview-item";
+    item.textContent = `${handle} - ${sentAt}`;
+    target.append(item);
+  }
+}
+
+function renderUnavailableList(target: HTMLUListElement): void {
+  target.replaceChildren();
+  const item = document.createElement("li");
+  item.className = "cache-overview-item cache-overview-item--empty";
+  item.textContent = "Cache unavailable.";
+  target.append(item);
 }

@@ -1,17 +1,24 @@
 import { spawn } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import { access, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 export const APP_ID = "com.fliptrix.desktop";
 
-const DRIVER_PORT = Number(process.env.FLIPTRIX_E2E_DRIVER_PORT ?? "4444");
-const DRIVER_PATH = process.env.FLIPTRIX_E2E_DRIVER_PATH ?? "/";
 const LINUX_NATIVE_DRIVER_CANDIDATES = [
   "/usr/bin/WebKitWebDriver",
   "/usr/libexec/webkit2gtk-4.1/WebKitWebDriver",
 ];
+
+function resolveDriverPort(env = process.env) {
+  return Number(env.FLIPTRIX_E2E_DRIVER_PORT ?? "4444");
+}
+
+function resolveDriverPath(env = process.env) {
+  return env.FLIPTRIX_E2E_DRIVER_PATH ?? "/";
+}
 
 export async function waitFor(check, { timeoutMs = 15_000, intervalMs = 250, errorMessage }) {
   const startedAt = Date.now();
@@ -61,6 +68,21 @@ export function resolveNativeDriverFromArgs(args) {
   return null;
 }
 
+export function resolveDriverPortFromArgs(args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--port") {
+      const next = args[index + 1];
+      return next ? Number(next) : null;
+    }
+    if (arg.startsWith("--port=")) {
+      const value = arg.slice("--port=".length);
+      return value ? Number(value) : null;
+    }
+  }
+  return null;
+}
+
 async function resolveLinuxNativeDriverPath() {
   for (const candidate of LINUX_NATIVE_DRIVER_CANDIDATES) {
     if (await exists(candidate)) {
@@ -89,6 +111,11 @@ export async function computeTauriDriverArgs({
   }
 
   const explicitNativeDriver = resolveNativeDriverFromArgs(extraArgs);
+  const explicitDriverPort = resolveDriverPortFromArgs(extraArgs);
+  if (!explicitDriverPort) {
+    extraArgs.push("--port", String(resolveDriverPort(env)));
+  }
+
   if (explicitNativeDriver) {
     return extraArgs;
   }
@@ -150,6 +177,28 @@ export async function createIsolatedDirs(prefix) {
   };
 }
 
+export async function getAvailablePort() {
+  return new Promise((resolvePort, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => reject(new Error("failed to resolve ephemeral port")));
+        return;
+      }
+
+      server.close((closeError) => {
+        if (closeError) {
+          reject(closeError);
+          return;
+        }
+        resolvePort(address.port);
+      });
+    });
+  });
+}
+
 export function resolveDriverStatusPath(driverPath) {
   const normalizedPath = (driverPath?.trim() || "/").startsWith("/")
     ? driverPath?.trim() || "/"
@@ -158,11 +207,11 @@ export function resolveDriverStatusPath(driverPath) {
   return `${basePath}/status`;
 }
 
-async function isDriverReady() {
+async function isDriverReady(env) {
+  const port = resolveDriverPort(env);
+  const path = resolveDriverPath(env);
   try {
-    const response = await fetch(
-      `http://127.0.0.1:${DRIVER_PORT}${resolveDriverStatusPath(DRIVER_PATH)}`,
-    );
+    const response = await fetch(`http://127.0.0.1:${port}${resolveDriverStatusPath(path)}`);
     return response.ok;
   } catch {
     return false;
@@ -201,46 +250,57 @@ export async function startTauriDriver(envOverrides = {}) {
     exited = true;
   });
 
-  await waitFor(
-    async () => {
-      if (startupError) {
-        throw new Error(`Failed to start tauri-driver (${driverCommand}): ${startupError.message}`);
-      }
-      if (exited) {
-        throw new Error(
-          `tauri-driver exited before becoming ready. Command: ${driverCommand} ${extraArgs.join(" ")}\n${logs.join("")}`,
-        );
-      }
-      return isDriverReady();
-    },
-    {
-      timeoutMs: 20_000,
-      errorMessage: `tauri-driver did not become ready. Command: ${driverCommand} ${extraArgs.join(
-        " ",
-      )}\n${logs.join("")}`,
-    },
-  );
+  async function stopChild() {
+    if (child.killed || exited) {
+      return;
+    }
+
+    child.kill();
+    await new Promise((resolveStop) => {
+      child.once("exit", () => resolveStop());
+      setTimeout(() => {
+        if (!child.killed) {
+          child.kill("SIGKILL");
+        }
+        resolveStop();
+      }, 5_000);
+    });
+  }
+
+  try {
+    await waitFor(
+      async () => {
+        if (startupError) {
+          throw new Error(
+            `Failed to start tauri-driver (${driverCommand}): ${startupError.message}`,
+          );
+        }
+        if (exited) {
+          throw new Error(
+            `tauri-driver exited before becoming ready. Command: ${driverCommand} ${extraArgs.join(" ")}\n${logs.join("")}`,
+          );
+        }
+        return isDriverReady(mergedEnv);
+      },
+      {
+        timeoutMs: 20_000,
+        errorMessage: `tauri-driver did not become ready. Command: ${driverCommand} ${extraArgs.join(
+          " ",
+        )}\n${logs.join("")}`,
+      },
+    );
+  } catch (error) {
+    await stopChild();
+    throw error;
+  }
 
   return {
     child,
-    port: DRIVER_PORT,
-    path: DRIVER_PATH,
+    port: resolveDriverPort(mergedEnv),
+    path: resolveDriverPath(mergedEnv),
     logs,
     async stop() {
-      if (child.killed) {
-        return;
-      }
-
-      child.kill();
-      await new Promise((resolveStop) => {
-        child.once("exit", () => resolveStop());
-        setTimeout(() => {
-          if (!child.killed) {
-            child.kill("SIGKILL");
-          }
-          resolveStop();
-        }, 5_000);
-      });
+      await stopChild();
     },
   };
 }

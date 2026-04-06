@@ -5,6 +5,7 @@ import {
   computeTauriDriverArgs,
   hasLinuxDisplay,
   resolveDriverStatusPath,
+  resolveDriverPortFromArgs,
   resolveNativeDriverFromArgs,
 } from "./runtime.mjs";
 
@@ -24,6 +25,12 @@ test("resolveNativeDriverFromArgs reads both arg styles", () => {
     "/custom/WebKitWebDriver",
   );
   assert.equal(resolveNativeDriverFromArgs(["--port", "4444"]), null);
+});
+
+test("resolveDriverPortFromArgs reads both arg styles", () => {
+  assert.equal(resolveDriverPortFromArgs(["--port", "4444"]), 4444);
+  assert.equal(resolveDriverPortFromArgs(["--port=5555"]), 5555);
+  assert.equal(resolveDriverPortFromArgs(["--native-driver", "/usr/bin/WebKitWebDriver"]), null);
 });
 
 test("computeTauriDriverArgs keeps non-linux args unchanged", async () => {
@@ -60,6 +67,17 @@ test("computeTauriDriverArgs appends auto-detected native driver on linux", asyn
   assert.deepEqual(args, ["--port", "4444", "--native-driver", "/usr/bin/WebKitWebDriver"]);
 });
 
+test("computeTauriDriverArgs appends env-derived port when missing on linux", async () => {
+  const args = await computeTauriDriverArgs({
+    platform: "linux",
+    rawArgs: "",
+    env: { DISPLAY: ":99", FLIPTRIX_E2E_DRIVER_PORT: "5566" },
+    linuxNativeDriverPath: "/usr/bin/WebKitWebDriver",
+  });
+
+  assert.deepEqual(args, ["--port", "5566", "--native-driver", "/usr/bin/WebKitWebDriver"]);
+});
+
 test("computeTauriDriverArgs preserves explicit native driver setting", async () => {
   const args = await computeTauriDriverArgs({
     platform: "linux",
@@ -68,7 +86,7 @@ test("computeTauriDriverArgs preserves explicit native driver setting", async ()
     linuxNativeDriverPath: "/usr/bin/WebKitWebDriver",
   });
 
-  assert.deepEqual(args, ["--native-driver", "/custom/WebKitWebDriver"]);
+  assert.deepEqual(args, ["--native-driver", "/custom/WebKitWebDriver", "--port", "4444"]);
 });
 
 test("resolveDriverStatusPath appends status when path has no trailing slash", () => {

@@ -54,6 +54,7 @@ export function initScreensaverOverlay(root: HTMLElement): void {
   root.innerHTML = `
     <div class="screensaver-overlay">
       <canvas id="screensaver-canvas"></canvas>
+      <output id="screensaver-rendered-posts" class="screensaver-rendered-posts" aria-live="polite"></output>
     </div>
   `;
 
@@ -154,16 +155,27 @@ async function startMatrixRenderer(
   stopActiveRenderer();
   canvas.className = "matrix-canvas";
 
-  const renderer = new MatrixRenderer(canvas, {
-    fontSize: settings.matrix_font_size,
-    spawnDensity: settings.matrix_spawn_density,
-    glowIntensity: settings.matrix_glow_intensity,
-    tickIntervalMs: settings.matrix_tick_ms,
-    backgroundLayerCount: settings.matrix_background_layers,
-    postRotationSec: settings.matrix_post_rotation_secs,
-  });
+  let renderer: MatrixRenderer;
+  try {
+    renderer = new MatrixRenderer(canvas, {
+      fontSize: settings.matrix_font_size,
+      spawnDensity: settings.matrix_spawn_density,
+      glowIntensity: settings.matrix_glow_intensity,
+      tickIntervalMs: settings.matrix_tick_ms,
+      backgroundLayerCount: settings.matrix_background_layers,
+      postRotationSec: settings.matrix_post_rotation_secs,
+      onActivePacketTextChange: (text) => {
+        writeRenderedPostsProbe(canvas, text);
+      },
+    });
+  } catch (err) {
+    writeRenderedPostsProbe(canvas, "MATRIX RENDERER INIT FAILED");
+    logError("Failed to initialize Matrix renderer", err);
+    return;
+  }
 
   wireResizeObserver(canvas, () => renderer.resizeCanvas());
+  writeRenderedPostsProbe(canvas, buildInitialMatrixProbe(posts));
   renderer.setPostContent(posts);
   renderer.start();
   activeRenderer = renderer;
@@ -194,6 +206,9 @@ async function startFlipFlapRenderer(
       pitchVariation: 200,
       volumeVariation: 0.1,
       durationMs: 15,
+    },
+    onVisibleLinesChange: (lines) => {
+      writeRenderedPostsProbe(canvas, lines.join("\n"));
     },
   });
 
@@ -263,6 +278,31 @@ function stopActiveRenderer(): void {
   activeResizeObserver = null;
   activeRenderer?.stop();
   activeRenderer = null;
+}
+
+function writeRenderedPostsProbe(canvas: HTMLCanvasElement, renderedText: string): void {
+  const normalized = renderedText.trim();
+  canvas.setAttribute("data-rendered-posts-sync", "1");
+  canvas.setAttribute("data-rendered-posts", normalized);
+
+  const probe = document.querySelector<HTMLOutputElement>("#screensaver-rendered-posts");
+  if (probe) {
+    probe.textContent = normalized;
+  }
+}
+
+function buildInitialMatrixProbe(posts: RendererPost[]): string {
+  if (posts.length === 0) {
+    return "";
+  }
+
+  const first = posts[0];
+  const author =
+    first.author && first.author.trim().length > 0
+      ? `${first.author.startsWith("@") ? first.author : `@${first.author}`}: `
+      : "";
+
+  return `${author}${first.text}`.toUpperCase();
 }
 
 async function loadSettings(): Promise<AppSettings> {

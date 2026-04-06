@@ -40,6 +40,8 @@ export interface FlipFlapConfig {
   backgroundAnimationEnabled: boolean;
   /** Speed multiplier for the drift animation. */
   backgroundSwirlSpeed: number;
+  /** Emits the currently targeted board lines whenever post window changes. */
+  onVisibleLinesChange?: (lines: string[]) => void;
 }
 
 /** Sensible defaults matching the PRD (8x40 board, 20s rotation). */
@@ -52,6 +54,7 @@ export const DEFAULT_FLIPFLAP_CONFIG: FlipFlapConfig = {
   backgroundImageUrl: null,
   backgroundAnimationEnabled: true,
   backgroundSwirlSpeed: DEFAULT_BACKGROUND_SWIRL_SPEED,
+  onVisibleLinesChange: undefined,
 };
 
 // --- Visual constants ---
@@ -234,13 +237,17 @@ export class FlipFlapRenderer {
   }
 
   private showCurrentPosts(): void {
-    if (this.posts.length === 0) return;
+    if (this.posts.length === 0) {
+      this.config.onVisibleLinesChange?.([]);
+      return;
+    }
 
     // Select a window of posts to display
     const windowPosts = this.posts.slice(this.postIndex, this.postIndex + this.config.rows);
 
     const lines = formatPostsForBoard(windowPosts, this.config.rows, this.config.cols);
     setTargetText(this.board, lines);
+    this.config.onVisibleLinesChange?.(lines);
   }
 
   // --- Private: drawing ---

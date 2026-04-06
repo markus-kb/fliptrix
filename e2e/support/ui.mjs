@@ -1,9 +1,14 @@
 import { waitFor } from "./runtime.mjs";
 
-function isMissingWindowError(error) {
+function isTransientWindowError(error) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
   return (
-    error instanceof Error &&
-    (error.message.includes("no such window") || error.message.includes("invalid session id"))
+    error.message.includes("no such window") ||
+    error.message.includes("invalid session id") ||
+    error.message.includes("Cannot read properties of null")
   );
 }
 
@@ -61,7 +66,7 @@ export async function findWindowHandleWithSelector(browser, selector, timeoutMs 
           return handle;
         }
       } catch (error) {
-        if (isMissingWindowError(error)) {
+        if (isTransientWindowError(error)) {
           continue;
         }
         throw error;
@@ -90,7 +95,7 @@ export async function waitForNoWindowWithSelector(browser, selector, timeoutMs =
           break;
         }
       } catch (error) {
-        if (isMissingWindowError(error)) {
+        if (isTransientWindowError(error)) {
           continue;
         }
         throw error;
@@ -122,7 +127,7 @@ export async function moveMouseBeyondDeadZone(browser) {
       },
     ]);
   } catch (error) {
-    if (!isMissingWindowError(error)) {
+    if (!isTransientWindowError(error)) {
       throw error;
     }
   }
@@ -130,7 +135,7 @@ export async function moveMouseBeyondDeadZone(browser) {
   try {
     await browser.releaseActions();
   } catch (error) {
-    if (isMissingWindowError(error)) {
+    if (isTransientWindowError(error)) {
       return;
     }
     throw error;
@@ -141,7 +146,7 @@ export async function pressEscape(browser) {
   try {
     await browser.keys("Escape");
   } catch (error) {
-    if (!isMissingWindowError(error)) {
+    if (!isTransientWindowError(error)) {
       throw error;
     }
   }
