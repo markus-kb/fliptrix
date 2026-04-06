@@ -138,7 +138,130 @@ describe("initSettingsUi", () => {
     expect(speedRange.value).toBe("1");
   });
 
-  it("saves selected flipflap background settings", async () => {
+  it("defaults renderer tabs to FlipFlap", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const flipTab = root.querySelector<HTMLButtonElement>("#renderer-tab-flipflap");
+    const matrixTab = root.querySelector<HTMLButtonElement>("#renderer-tab-matrix");
+    const flipPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-flipflap");
+    const matrixPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-matrix");
+    if (!flipTab || !matrixTab || !flipPanel || !matrixPanel) {
+      throw new Error("missing renderer tab controls");
+    }
+
+    expect(flipTab.getAttribute("aria-selected")).toBe("true");
+    expect(matrixTab.getAttribute("aria-selected")).toBe("false");
+    expect(flipPanel.hidden).toBe(false);
+    expect(matrixPanel.hidden).toBe(true);
+  });
+
+  it("switches renderer tab content to Matrix", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const flipTab = root.querySelector<HTMLButtonElement>("#renderer-tab-flipflap");
+    const matrixTab = root.querySelector<HTMLButtonElement>("#renderer-tab-matrix");
+    const flipPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-flipflap");
+    const matrixPanel = root.querySelector<HTMLElement>("#renderer-tab-panel-matrix");
+    if (!flipTab || !matrixTab || !flipPanel || !matrixPanel) {
+      throw new Error("missing renderer tab controls");
+    }
+
+    matrixTab.click();
+
+    expect(flipTab.getAttribute("aria-selected")).toBe("false");
+    expect(matrixTab.getAttribute("aria-selected")).toBe("true");
+    expect(flipPanel.hidden).toBe(true);
+    expect(matrixPanel.hidden).toBe(false);
+  });
+
+  it("renders X data rows as aligned FlipFlap and Matrix columns", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const xDataPanel = Array.from(root.querySelectorAll<HTMLElement>("fieldset.panel")).find(
+      (panel) => panel.querySelector("legend")?.textContent?.trim() === "X data",
+    );
+    if (!xDataPanel) throw new Error("missing x data panel");
+
+    const rows = xDataPanel.querySelectorAll<HTMLElement>(".field-row");
+    expect(rows).toHaveLength(4);
+
+    const labelsForRow = (row: Element): string[] =>
+      Array.from(
+        row.querySelectorAll<HTMLElement>(".field-label"),
+        (label) => label.textContent?.trim() ?? "",
+      );
+
+    expect(labelsForRow(rows[0])).toEqual(["FlipFlap accounts", "Matrix accounts"]);
+    expect(labelsForRow(rows[1])).toEqual(["FlipFlap search query", "Matrix search query"]);
+    expect(labelsForRow(rows[2])).toEqual([
+      "FlipFlap time window (hours)",
+      "Matrix time window (hours)",
+    ]);
+    expect(labelsForRow(rows[3])).toEqual([
+      "FlipFlap truncation (chars)",
+      "Matrix truncation (chars)",
+    ]);
+  });
+
+  it("X data left column is always FlipFlap, right column is always Matrix", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const xDataPanel = Array.from(root.querySelectorAll<HTMLElement>("fieldset.panel")).find(
+      (panel) => panel.querySelector("legend")?.textContent?.trim() === "X data",
+    );
+    if (!xDataPanel) throw new Error("missing x data panel");
+
+    const rows = xDataPanel.querySelectorAll<HTMLElement>(".field-row");
+    for (const row of rows) {
+      const fields = row.querySelectorAll<HTMLElement>(".field");
+      expect(fields).toHaveLength(2);
+
+      const leftLabel =
+        fields[0].querySelector<HTMLElement>(".field-label")?.textContent?.trim() ?? "";
+      const rightLabel =
+        fields[1].querySelector<HTMLElement>(".field-label")?.textContent?.trim() ?? "";
+
+      expect(leftLabel).toContain("FlipFlap");
+      expect(rightLabel).toContain("Matrix");
+    }
+  });
+
+  it("X data two-column fields are never unpaired in a field-row", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const xDataPanel = Array.from(root.querySelectorAll<HTMLElement>("fieldset.panel")).find(
+      (panel) => panel.querySelector("legend")?.textContent?.trim() === "X data",
+    );
+    if (!xDataPanel) throw new Error("missing x data panel");
+
+    const rows = xDataPanel.querySelectorAll<HTMLElement>(".field-row");
+
+    // Every field-row must have exactly 2 children — no unpaired fields
+    for (const row of rows) {
+      expect(row.querySelectorAll<HTMLElement>(".field")).toHaveLength(2);
+    }
+
+    // Total two-column field-labels must be even (8 = 4 rows × 2)
+    const twoColumnLabels = xDataPanel.querySelectorAll<HTMLElement>(".field-row .field-label");
+    expect(twoColumnLabels.length % 2).toBe(0);
+  });
+
+  it("shows save confirmation near action buttons", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");
 
@@ -161,6 +284,10 @@ describe("initSettingsUi", () => {
     animationCheckbox.checked = false;
     speedRange.value = "1.7";
 
+    const topFeedback = root.querySelector<HTMLElement>("#settings-feedback");
+    const saveFeedback = root.querySelector<HTMLElement>("#settings-save-feedback");
+    if (!form || !topFeedback || !saveFeedback) throw new Error("missing save form controls");
+
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await Promise.resolve();
     await Promise.resolve();
@@ -172,6 +299,11 @@ describe("initSettingsUi", () => {
         flipflap_background_swirl_speed: 1.7,
       }),
     );
+
+    expect(saveSettingsMock).toHaveBeenCalled();
+    expect(saveFeedback.hidden).toBe(false);
+    expect(saveFeedback.textContent).toContain("Settings saved.");
+    expect(topFeedback.hidden).toBe(true);
   });
 
   it("saves matrix mode and activates the screensaver when testing Matrix", async () => {

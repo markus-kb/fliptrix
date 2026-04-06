@@ -150,9 +150,19 @@ export async function createIsolatedDirs(prefix) {
   };
 }
 
+export function resolveDriverStatusPath(driverPath) {
+  const normalizedPath = (driverPath?.trim() || "/").startsWith("/")
+    ? driverPath?.trim() || "/"
+    : `/${driverPath?.trim() || ""}`;
+  const basePath = normalizedPath.endsWith("/") ? normalizedPath.slice(0, -1) : normalizedPath;
+  return `${basePath}/status`;
+}
+
 async function isDriverReady() {
   try {
-    const response = await fetch(`http://127.0.0.1:${DRIVER_PORT}${DRIVER_PATH}status`);
+    const response = await fetch(
+      `http://127.0.0.1:${DRIVER_PORT}${resolveDriverStatusPath(DRIVER_PATH)}`,
+    );
     return response.ok;
   } catch {
     return false;
