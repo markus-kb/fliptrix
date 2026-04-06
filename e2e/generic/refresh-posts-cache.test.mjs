@@ -30,7 +30,7 @@ test("refreshes posts and writes per-mode cache files", async () => {
     await waitForElementText(browser, "#api-key-status", "token saved");
 
     await clickButton(browser, 'button[type="submit"]');
-    await waitForElementText(browser, "#settings-feedback", "Settings saved.");
+    await waitForElementText(browser, "#settings-save-feedback", "Settings saved.");
 
     await clickButton(browser, "#refresh-posts-btn");
     await waitForElementText(browser, "#refresh-status", "Posts refreshed.", 25_000);

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   computeTauriDriverArgs,
   hasLinuxDisplay,
+  resolveDriverStatusPath,
   resolveNativeDriverFromArgs,
 } from "./runtime.mjs";
 
@@ -68,4 +69,16 @@ test("computeTauriDriverArgs preserves explicit native driver setting", async ()
   });
 
   assert.deepEqual(args, ["--native-driver", "/custom/WebKitWebDriver"]);
+});
+
+test("resolveDriverStatusPath appends status when path has no trailing slash", () => {
+  assert.equal(resolveDriverStatusPath("/wd/hub"), "/wd/hub/status");
+});
+
+test("resolveDriverStatusPath appends status when path has trailing slash", () => {
+  assert.equal(resolveDriverStatusPath("/wd/hub/"), "/wd/hub/status");
+});
+
+test("resolveDriverStatusPath handles root path", () => {
+  assert.equal(resolveDriverStatusPath("/"), "/status");
 });

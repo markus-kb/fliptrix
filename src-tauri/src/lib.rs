@@ -823,3 +823,53 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+// ---------------------------------------------------------------------------
+// Config tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod config_tests {
+    use serde_json::Value;
+
+    fn load_tauri_config() -> Value {
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let config_path = manifest_dir.join("tauri.conf.json");
+        let content = std::fs::read_to_string(&config_path)
+            .unwrap_or_else(|e| panic!("failed to read {}: {e}", config_path.display()));
+        serde_json::from_str(&content)
+            .unwrap_or_else(|e| panic!("failed to parse {}: {e}", config_path.display()))
+    }
+
+    #[test]
+    fn test_main_window_has_minimum_size() {
+        let config = load_tauri_config();
+        let windows = config
+            .get("app")
+            .and_then(|a| a.get("windows"))
+            .and_then(|w| w.as_array())
+            .expect("tauri.conf.json app.windows must be an array");
+
+        let main = windows
+            .first()
+            .expect("tauri.conf.json must have at least one window");
+
+        let min_width = main
+            .get("minWidth")
+            .and_then(|v| v.as_u64())
+            .expect("main window must have minWidth");
+        let min_height = main
+            .get("minHeight")
+            .and_then(|v| v.as_u64())
+            .expect("main window must have minHeight");
+
+        assert!(
+            min_width >= 640,
+            "main window minWidth ({min_width}) must be >= 640"
+        );
+        assert!(
+            min_height >= 480,
+            "main window minHeight ({min_height}) must be >= 480"
+        );
+    }
+}
