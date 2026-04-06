@@ -14,6 +14,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { resolveFlipFlapBackgroundImageUrl } from "./flipflap-backgrounds";
 import { FlipFlapRenderer } from "./flipflap-renderer";
 import { logError, logWarn, setFrontendDebugLogging } from "./logger";
 import { MatrixRenderer } from "./matrix-renderer";
@@ -196,6 +197,9 @@ async function startFlipFlapRenderer(
     cols: settings.flipflap_cols,
     tickIntervalMs: settings.flipflap_tick_ms,
     postRotationSec: settings.flipflap_rotation_secs,
+    backgroundImageUrl: resolveFlipFlapBackgroundImageUrl(settings.flipflap_background_image),
+    backgroundAnimationEnabled: settings.flipflap_background_animation_enabled,
+    backgroundSwirlSpeed: settings.flipflap_background_swirl_speed,
     audio: {
       masterVolume: settings.flipflap_volume,
       pitchCenter: 1800,

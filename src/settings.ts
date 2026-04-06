@@ -35,6 +35,9 @@ export interface AppSettings {
   flipflap_tick_ms: number;
   flipflap_rotation_secs: number;
   flipflap_volume: number;
+  flipflap_background_image: string | null;
+  flipflap_background_animation_enabled: boolean;
+  flipflap_background_swirl_speed: number;
   flipflap_accounts: string[];
   flipflap_search_query: string;
   flipflap_time_window_hours: number;
@@ -65,6 +68,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   flipflap_tick_ms: 80,
   flipflap_rotation_secs: 20,
   flipflap_volume: 0.6,
+  flipflap_background_image: null,
+  flipflap_background_animation_enabled: true,
+  flipflap_background_swirl_speed: 1,
   flipflap_accounts: [],
   flipflap_search_query: "",
   flipflap_time_window_hours: 24,

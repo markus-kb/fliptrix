@@ -14,6 +14,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { getFlipFlapBackgroundAssets } from "./flipflap-backgrounds";
 import { logDebug, logError, logInfo, logWarn, setFrontendDebugLogging } from "./logger";
 import {
   type AppSettings,
@@ -63,6 +64,8 @@ export async function initSettingsUi(root: HTMLElement): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
+  const backgroundOptions = buildFlipFlapBackgroundOptions(s.flipflap_background_image);
+
   return `
     <section class="settings-shell">
       <header class="settings-header">
@@ -124,6 +127,34 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
             </div>
             <span class="field-hint">Applies the current form values with the selected test mode and launches the screensaver immediately.</span>
           </div>
+        </fieldset>
+
+        <!-- FlipFlap background -->
+        <fieldset class="panel">
+          <legend>FlipFlap background</legend>
+
+          <label class="field">
+            <span class="field-label">Background image</span>
+            <select name="flipflap_background_image">
+              <option value="">None (solid background)</option>
+              ${backgroundOptions}
+            </select>
+            <span class="field-hint">Scale mode: cover (keeps aspect ratio and centers).</span>
+          </label>
+
+          <label class="field field-checkbox">
+            <input type="checkbox" name="flipflap_background_animation_enabled"
+              ${s.flipflap_background_animation_enabled ? "checked" : ""} />
+            <span class="field-label">Enable gentle drift animation</span>
+          </label>
+
+          <label class="field" id="flipflap-bg-swirl-speed-field"
+            ${s.flipflap_background_animation_enabled ? "" : 'style="display:none"'}>
+            <span class="field-label">Drift speed</span>
+            <input type="range" name="flipflap_background_swirl_speed" min="0.1" max="3" step="0.1"
+              value="${s.flipflap_background_swirl_speed}" />
+            <output class="range-output" id="flipflap-bg-swirl-speed-output" for="flipflap_background_swirl_speed">${s.flipflap_background_swirl_speed.toFixed(1)}</output>
+          </label>
         </fieldset>
 
         <!-- Renderers -->
@@ -403,6 +434,13 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   const modeSelect = form.querySelector<HTMLSelectElement>('[name="mode"]');
   modeSelect?.addEventListener("change", () => syncModeSwitchVisibility(form));
 
+  const backgroundAnimationCheckbox = form.querySelector<HTMLInputElement>(
+    '[name="flipflap_background_animation_enabled"]',
+  );
+  backgroundAnimationCheckbox?.addEventListener("change", () => {
+    syncFlipFlapBackgroundSwirlVisibility(form);
+  });
+
   // Renderer tabs.
   wireRendererTabs(root);
 
@@ -412,6 +450,16 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   volumeRange?.addEventListener("input", () => {
     if (volumeOutput) {
       volumeOutput.textContent = Number(volumeRange.value).toFixed(2);
+    }
+  });
+
+  const swirlRange = form.querySelector<HTMLInputElement>(
+    '[name="flipflap_background_swirl_speed"]',
+  );
+  const swirlOutput = form.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
+  swirlRange?.addEventListener("input", () => {
+    if (swirlOutput) {
+      swirlOutput.textContent = Number(swirlRange.value).toFixed(1);
     }
   });
 
@@ -529,6 +577,16 @@ function readFormValues(form: HTMLFormElement, fallback: AppSettings): AppSettin
     flipflap_tick_ms: num("flipflap_tick_ms", fallback.flipflap_tick_ms),
     flipflap_rotation_secs: num("flipflap_rotation_secs", fallback.flipflap_rotation_secs),
     flipflap_volume: num("flipflap_volume", fallback.flipflap_volume),
+    flipflap_background_image:
+      str("flipflap_background_image", fallback.flipflap_background_image ?? "") || null,
+    flipflap_background_animation_enabled: bool(
+      "flipflap_background_animation_enabled",
+      fallback.flipflap_background_animation_enabled,
+    ),
+    flipflap_background_swirl_speed: num(
+      "flipflap_background_swirl_speed",
+      fallback.flipflap_background_swirl_speed,
+    ),
     flipflap_accounts: parseAccountsField(
       str("flipflap_accounts", formatAccountsField(fallback.flipflap_accounts)),
     ),
@@ -565,6 +623,8 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     flipflap_tick_ms: s.flipflap_tick_ms,
     flipflap_rotation_secs: s.flipflap_rotation_secs,
     flipflap_volume: s.flipflap_volume,
+    flipflap_background_image: s.flipflap_background_image ?? "",
+    flipflap_background_swirl_speed: s.flipflap_background_swirl_speed,
     flipflap_search_query: s.flipflap_search_query,
     flipflap_time_window_hours: s.flipflap_time_window_hours,
     flipflap_truncation_chars: s.flipflap_truncation_chars,
@@ -599,13 +659,26 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     debugLoggingCheckbox.checked = s.debug_logging_enabled;
   }
 
+  const backgroundAnimationCheckbox = form.querySelector<HTMLInputElement>(
+    '[name="flipflap_background_animation_enabled"]',
+  );
+  if (backgroundAnimationCheckbox) {
+    backgroundAnimationCheckbox.checked = s.flipflap_background_animation_enabled;
+  }
+
   // Update the volume output label.
   const volumeOutput = form.querySelector<HTMLOutputElement>(".range-output");
   if (volumeOutput) {
     volumeOutput.textContent = Number(s.flipflap_volume).toFixed(2);
   }
 
+  const swirlOutput = form.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
+  if (swirlOutput) {
+    swirlOutput.textContent = Number(s.flipflap_background_swirl_speed).toFixed(1);
+  }
+
   syncModeSwitchVisibility(form);
+  syncFlipFlapBackgroundSwirlVisibility(form);
 }
 
 function syncModeSwitchVisibility(form: HTMLFormElement): void {
@@ -616,6 +689,28 @@ function syncModeSwitchVisibility(form: HTMLFormElement): void {
   }
 
   switchIntervalField.style.display = modeSelect.value === "both" ? "" : "none";
+}
+
+function syncFlipFlapBackgroundSwirlVisibility(form: HTMLFormElement): void {
+  const animationCheckbox = form.querySelector<HTMLInputElement>(
+    '[name="flipflap_background_animation_enabled"]',
+  );
+  const swirlField = form.querySelector<HTMLElement>("#flipflap-bg-swirl-speed-field");
+
+  if (!animationCheckbox || !swirlField) {
+    return;
+  }
+
+  swirlField.style.display = animationCheckbox.checked ? "" : "none";
+}
+
+function buildFlipFlapBackgroundOptions(selectedFileName: string | null): string {
+  return getFlipFlapBackgroundAssets()
+    .map((asset) => {
+      const selected = asset.fileName === selectedFileName ? " selected" : "";
+      return `<option value="${asset.fileName}"${selected}>${asset.label}</option>`;
+    })
+    .join("");
 }
 
 function wireRendererTabs(root: HTMLElement): void {

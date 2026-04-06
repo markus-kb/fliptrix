@@ -280,6 +280,32 @@ describe("initSettingsUi", () => {
     expect(root.querySelector("#open-logs-btn")?.textContent).toContain("Open logs folder");
   });
 
+  it("renders flipflap background controls", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const select = root.querySelector<HTMLSelectElement>('[name="flipflap_background_image"]');
+    const animationCheckbox = root.querySelector<HTMLInputElement>(
+      '[name="flipflap_background_animation_enabled"]',
+    );
+    const speedRange = root.querySelector<HTMLInputElement>(
+      '[name="flipflap_background_swirl_speed"]',
+    );
+
+    if (!select || !animationCheckbox || !speedRange) {
+      throw new Error("missing background controls");
+    }
+
+    const optionValues = [...select.options].map((option) => option.value);
+    expect(optionValues).toContain("");
+    expect(optionValues).toContain("airport1.jpg");
+    expect(optionValues).toContain("airport2.jpg");
+    expect(animationCheckbox.checked).toBe(true);
+    expect(speedRange.value).toBe("1");
+  });
+
   it("defaults renderer tabs to FlipFlap", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");
@@ -410,6 +436,22 @@ describe("initSettingsUi", () => {
     await initSettingsUi(root);
 
     const form = root.querySelector<HTMLFormElement>("#settings-form");
+    const select = root.querySelector<HTMLSelectElement>('[name="flipflap_background_image"]');
+    const animationCheckbox = root.querySelector<HTMLInputElement>(
+      '[name="flipflap_background_animation_enabled"]',
+    );
+    const speedRange = root.querySelector<HTMLInputElement>(
+      '[name="flipflap_background_swirl_speed"]',
+    );
+
+    if (!form || !select || !animationCheckbox || !speedRange) {
+      throw new Error("missing save controls");
+    }
+
+    select.value = "airport1.jpg";
+    animationCheckbox.checked = false;
+    speedRange.value = "1.7";
+
     const topFeedback = root.querySelector<HTMLElement>("#settings-feedback");
     const saveFeedback = root.querySelector<HTMLElement>("#settings-save-feedback");
     if (!form || !topFeedback || !saveFeedback) throw new Error("missing save form controls");
@@ -417,6 +459,14 @@ describe("initSettingsUi", () => {
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await Promise.resolve();
     await Promise.resolve();
+
+    expect(saveSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flipflap_background_image: "airport1.jpg",
+        flipflap_background_animation_enabled: false,
+        flipflap_background_swirl_speed: 1.7,
+      }),
+    );
 
     expect(saveSettingsMock).toHaveBeenCalled();
     expect(saveFeedback.hidden).toBe(false);

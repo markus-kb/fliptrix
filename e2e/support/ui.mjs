@@ -113,18 +113,25 @@ export async function waitForNoWindowWithSelector(browser, selector, timeoutMs =
 }
 
 export async function moveMouseBeyondDeadZone(browser) {
-  await browser.performActions([
-    {
-      type: "pointer",
-      id: "mouse",
-      parameters: { pointerType: "mouse" },
-      actions: [
-        { type: "pointerMove", duration: 0, x: 20, y: 20, origin: "viewport" },
-        { type: "pause", duration: 50 },
-        { type: "pointerMove", duration: 0, x: 220, y: 220, origin: "viewport" },
-      ],
-    },
-  ]);
+  try {
+    await browser.performActions([
+      {
+        type: "pointer",
+        id: "mouse",
+        parameters: { pointerType: "mouse" },
+        actions: [
+          { type: "pointerMove", duration: 0, x: 20, y: 20, origin: "viewport" },
+          { type: "pause", duration: 50 },
+          { type: "pointerMove", duration: 0, x: 220, y: 220, origin: "viewport" },
+        ],
+      },
+    ]);
+  } catch (error) {
+    if (!isTransientWindowError(error)) {
+      throw error;
+    }
+  }
+
   try {
     await browser.releaseActions();
   } catch (error) {
@@ -132,5 +139,15 @@ export async function moveMouseBeyondDeadZone(browser) {
       return;
     }
     throw error;
+  }
+}
+
+export async function pressEscape(browser) {
+  try {
+    await browser.keys("Escape");
+  } catch (error) {
+    if (!isTransientWindowError(error)) {
+      throw error;
+    }
   }
 }

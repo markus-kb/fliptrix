@@ -6,6 +6,7 @@ import { waitFor } from "../support/runtime.mjs";
 import {
   clickButton,
   findWindowHandleWithSelector,
+  pressEscape,
   setFieldValue,
   waitForElementText,
   waitForNoWindowWithSelector,
@@ -102,7 +103,7 @@ test("flipflap preview exposes rendered X post content", async () => {
     });
     assert.match(String(renderedPosts), /ffv2e/i);
 
-    await browser.keys("Escape");
+    await pressEscape(browser);
     await waitForNoWindowWithSelector(browser, "#screensaver-canvas", 20_000);
   } finally {
     await harness.closeSession(browser);
@@ -143,7 +144,7 @@ test("matrix preview exposes rendered X post packet content", async () => {
     });
     assert.match(String(renderedPosts), /MXV2E/);
 
-    await browser.keys("Escape");
+    await pressEscape(browser);
     await waitForNoWindowWithSelector(browser, "#screensaver-canvas", 20_000);
   } finally {
     await harness.closeSession(browser);
