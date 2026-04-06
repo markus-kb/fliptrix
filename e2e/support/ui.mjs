@@ -1,5 +1,17 @@
 import { waitFor } from "./runtime.mjs";
 
+function isTransientWindowError(error) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message.includes("no such window") ||
+    error.message.includes("invalid session id") ||
+    error.message.includes("Cannot read properties of null")
+  );
+}
+
 export async function setFieldValue(browser, selector, value) {
   const field = await browser.$(selector);
   await field.waitForDisplayed({ timeout: 15_000 });
@@ -54,10 +66,7 @@ export async function findWindowHandleWithSelector(browser, selector, timeoutMs 
           return handle;
         }
       } catch (error) {
-        if (
-          error instanceof Error &&
-          (error.message.includes("no such window") || error.message.includes("invalid session id"))
-        ) {
+        if (isTransientWindowError(error)) {
           continue;
         }
         throw error;
@@ -86,10 +95,7 @@ export async function waitForNoWindowWithSelector(browser, selector, timeoutMs =
           break;
         }
       } catch (error) {
-        if (
-          error instanceof Error &&
-          (error.message.includes("no such window") || error.message.includes("invalid session id"))
-        ) {
+        if (isTransientWindowError(error)) {
           continue;
         }
         throw error;
@@ -122,10 +128,7 @@ export async function moveMouseBeyondDeadZone(browser) {
   try {
     await browser.releaseActions();
   } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message.includes("no such window") || error.message.includes("invalid session id"))
-    ) {
+    if (isTransientWindowError(error)) {
       return;
     }
     throw error;

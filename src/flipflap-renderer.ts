@@ -33,6 +33,8 @@ export interface FlipFlapConfig {
   postRotationSec: number;
   /** Audio configuration. Null to disable sound. */
   audio: FlipAudioConfig | null;
+  /** Emits the currently targeted board lines whenever post window changes. */
+  onVisibleLinesChange?: (lines: string[]) => void;
 }
 
 /** Sensible defaults matching the PRD (8x40 board, 20s rotation). */
@@ -42,6 +44,7 @@ export const DEFAULT_FLIPFLAP_CONFIG: FlipFlapConfig = {
   tickIntervalMs: 80,
   postRotationSec: 20,
   audio: null, // Populated by FlipFlapRenderer from default audio config
+  onVisibleLinesChange: undefined,
 };
 
 // --- Visual constants ---
@@ -219,13 +222,17 @@ export class FlipFlapRenderer {
   }
 
   private showCurrentPosts(): void {
-    if (this.posts.length === 0) return;
+    if (this.posts.length === 0) {
+      this.config.onVisibleLinesChange?.([]);
+      return;
+    }
 
     // Select a window of posts to display
     const windowPosts = this.posts.slice(this.postIndex, this.postIndex + this.config.rows);
 
     const lines = formatPostsForBoard(windowPosts, this.config.rows, this.config.cols);
     setTargetText(this.board, lines);
+    this.config.onVisibleLinesChange?.(lines);
   }
 
   // --- Private: drawing ---

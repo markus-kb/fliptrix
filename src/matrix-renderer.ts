@@ -38,6 +38,8 @@ export interface MatrixConfig {
   backgroundLayerCount: number;
   /** Seconds between injecting the next post as a data packet. */
   postRotationSec: number;
+  /** Emits the uppercase packet text injected into the foreground layer. */
+  onActivePacketTextChange?: (text: string) => void;
 }
 
 /** Sensible defaults — authentic Matrix look without excessive CPU usage. */
@@ -48,6 +50,7 @@ export const DEFAULT_MATRIX_CONFIG: MatrixConfig = {
   tickIntervalMs: 40,
   backgroundLayerCount: 1,
   postRotationSec: 15,
+  onActivePacketTextChange: undefined,
 };
 
 // ---------------------------------------------------------------------------
@@ -483,6 +486,12 @@ export class MatrixRenderer {
   setPostContent(posts: (string | PostEntry)[]): void {
     this.posts = posts;
     this.postIndex = 0;
+    if (posts.length === 0) {
+      this.config.onActivePacketTextChange?.("");
+      return;
+    }
+
+    this.config.onActivePacketTextChange?.(buildPacketText(posts[0]));
   }
 
   /** Start the animation loop. */
@@ -496,6 +505,8 @@ export class MatrixRenderer {
       layer.lastTickTime = now;
       layer.lastPostRotationTime = now;
     }
+
+    this.seedForegroundPacket();
 
     this.drawComposite();
     this.loop(now);
@@ -585,9 +596,8 @@ export class MatrixRenderer {
     if (this.posts.length === 0) return;
 
     const post = this.posts[this.postIndex];
-    const text = typeof post === "string" ? post : post.text;
-    const author = typeof post === "object" && post.author ? `@${post.author}: ` : "";
-    const fullText = (author + text).toUpperCase();
+    const fullText = buildPacketText(post);
+    this.config.onActivePacketTextChange?.(fullText);
 
     this.postIndex = (this.postIndex + 1) % this.posts.length;
 
@@ -606,6 +616,19 @@ export class MatrixRenderer {
       if (!dirty.includes(colIndex)) {
         dirty.push(colIndex);
       }
+    }
+  }
+
+  private seedForegroundPacket(): void {
+    const foreground = this.layers.find((layer) => layer.config.id === "foreground");
+    if (!foreground || this.posts.length === 0) {
+      return;
+    }
+
+    const dirty: number[] = [];
+    this.rotatePostPacket(foreground, dirty);
+    for (const col of dirty) {
+      this.drawLayerColumn(foreground, col);
     }
   }
 
@@ -709,6 +732,15 @@ export class MatrixRenderer {
       advanceMatrix(board);
     }
   }
+}
+
+function buildPacketText(post: string | PostEntry): string {
+  const text = typeof post === "string" ? post : post.text;
+  const author =
+    typeof post === "object" && post.author
+      ? `${post.author.startsWith("@") ? post.author : `@${post.author}`}: `
+      : "";
+  return (author + text).toUpperCase();
 }
 
 function rgba(rgb: readonly [number, number, number], alpha: number): string {

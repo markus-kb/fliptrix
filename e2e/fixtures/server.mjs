@@ -9,6 +9,9 @@ function normalizeQueryValue(value) {
   return (value ?? "").toString().trim() || "e2e-query";
 }
 
+const RFC3339_SECONDS_OR_MILLIS =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/;
+
 export async function startFixtureServer() {
   const server = createServer((req, res) => {
     if (!req.url) {
@@ -36,6 +39,27 @@ export async function startFixtureServer() {
     }
 
     if (path.startsWith("/2/users/") && path.endsWith("/tweets")) {
+      const startTime = url.searchParams.get("start_time");
+      if (startTime && !RFC3339_SECONDS_OR_MILLIS.test(startTime)) {
+        json(res, 400, {
+          errors: [
+            {
+              parameters: {
+                start_time: [startTime],
+                "Field Validation Errors": [
+                  `The \`start_time\` query parameter value [${startTime}] is not a valid RFC3339 date-time, must follow pattern 'yyyy-MM-dd'T'HH:mm:ss[.SSS]X.'`,
+                ],
+              },
+              message: `The \`start_time\` query parameter value [${startTime}] is not a valid RFC3339 date-time, must follow pattern 'yyyy-MM-dd'T'HH:mm:ss[.SSS]X.'`,
+            },
+          ],
+          title: "Invalid Request",
+          detail: "One or more parameters to your request was invalid.",
+          type: "https://api.twitter.com/2/problems/invalid-request",
+        });
+        return;
+      }
+
       const userId = decodeURIComponent(path.slice("/2/users/".length, -"/tweets".length));
       const username = userId.replace(/^user-/, "");
       json(res, 200, {

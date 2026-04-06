@@ -57,6 +57,12 @@ vi.mock("./logger", () => ({
 import { cloneDefaultSettings } from "./settings";
 import { formatAccountsField, initSettingsUi, parseAccountsField } from "./settings-ui";
 
+async function flushUi(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe("parseAccountsField", () => {
   it("trims whitespace, strips leading @, and drops empty lines", () => {
     expect(parseAccountsField("  @alice\n\nbob  \n @carol ")).toEqual(["alice", "bob", "carol"]);
@@ -88,7 +94,169 @@ describe("initSettingsUi", () => {
     getAutostartEnabledMock.mockResolvedValue(false);
     openLogsDirectoryMock.mockResolvedValue("/tmp/fliptrix/logs");
     saveSettingsMock.mockResolvedValue();
-    invokeMock.mockResolvedValue(undefined);
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_api_key_status") {
+        return false;
+      }
+
+      if (command === "get_cached_posts") {
+        const mode = (args as { mode?: string } | undefined)?.mode;
+        if (mode === "flipflap") {
+          return {
+            fetched_at: "2026-04-05T09:00:00Z",
+            posts: [],
+          };
+        }
+
+        return {
+          fetched_at: "2026-04-05T10:00:00Z",
+          posts: [],
+        };
+      }
+
+      return undefined;
+    });
+  });
+
+  it("renders cache totals and per-mode post metadata", async () => {
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_api_key_status") {
+        return true;
+      }
+
+      if (command === "get_cached_posts") {
+        const mode = (args as { mode?: string } | undefined)?.mode;
+        if (mode === "flipflap") {
+          return {
+            fetched_at: "2026-04-05T09:30:00Z",
+            posts: [
+              {
+                id: "flip-1",
+                text: "flipflap sample",
+                author_username: "alice",
+                created_at: "2026-04-05T09:20:00Z",
+              },
+            ],
+          };
+        }
+
+        return {
+          fetched_at: "2026-04-05T10:45:00Z",
+          posts: [
+            {
+              id: "matrix-1",
+              text: "matrix sample one",
+              author_username: "bob",
+              created_at: "2026-04-05T10:10:00Z",
+            },
+            {
+              id: "matrix-2",
+              text: "matrix sample two",
+              author_username: "carol",
+              created_at: "2026-04-05T10:20:00Z",
+            },
+          ],
+        };
+      }
+
+      return undefined;
+    });
+
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+    await flushUi();
+
+    const summary = root.querySelector<HTMLElement>("#cache-overview-summary");
+    const flipMeta = root.querySelector<HTMLElement>("#cache-meta-flipflap");
+    const matrixMeta = root.querySelector<HTMLElement>("#cache-meta-matrix");
+    const flipList = root.querySelector<HTMLElement>("#cache-list-flipflap");
+    const matrixList = root.querySelector<HTMLElement>("#cache-list-matrix");
+
+    expect(summary?.textContent).toContain("Total cached posts: 3");
+    expect(flipMeta?.textContent).toContain("FlipFlap cache: 1 post");
+    expect(matrixMeta?.textContent).toContain("Matrix cache: 2 posts");
+
+    expect(flipList?.textContent).toContain("@alice");
+    expect(flipList?.textContent).toContain("2026");
+
+    expect(matrixList?.textContent).toContain("@bob");
+    expect(matrixList?.textContent).toContain("@carol");
+    expect(matrixList?.textContent).toContain("2026");
+  });
+
+  it("refresh updates cache summary and post list", async () => {
+    let cacheVersion = 0;
+
+    invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_api_key_status") {
+        return true;
+      }
+
+      if (command === "fetch_posts") {
+        cacheVersion = 1;
+        return [];
+      }
+
+      if (command === "get_cached_posts") {
+        const mode = (args as { mode?: string } | undefined)?.mode;
+        if (cacheVersion === 0) {
+          return {
+            fetched_at: "2026-04-05T09:00:00Z",
+            posts: [],
+          };
+        }
+
+        if (mode === "flipflap") {
+          return {
+            fetched_at: "2026-04-05T09:30:00Z",
+            posts: [
+              {
+                id: "flip-1",
+                text: "flip refreshed",
+                author_username: "refreshflip",
+                created_at: "2026-04-05T09:20:00Z",
+              },
+            ],
+          };
+        }
+
+        return {
+          fetched_at: "2026-04-05T10:30:00Z",
+          posts: [
+            {
+              id: "matrix-1",
+              text: "matrix refreshed",
+              author_username: "refreshmatrix",
+              created_at: "2026-04-05T10:20:00Z",
+            },
+          ],
+        };
+      }
+
+      return undefined;
+    });
+
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+    await flushUi();
+
+    const refreshBtn = root.querySelector<HTMLButtonElement>("#refresh-posts-btn");
+    if (!refreshBtn) throw new Error("missing refresh button");
+
+    refreshBtn.click();
+    await flushUi();
+
+    const summary = root.querySelector<HTMLElement>("#cache-overview-summary");
+    const flipList = root.querySelector<HTMLElement>("#cache-list-flipflap");
+    const matrixList = root.querySelector<HTMLElement>("#cache-list-matrix");
+
+    expect(summary?.textContent).toContain("Total cached posts: 2");
+    expect(flipList?.textContent).toContain("@refreshflip");
+    expect(matrixList?.textContent).toContain("@refreshmatrix");
   });
 
   it("renders immediate test buttons for each mode", async () => {
