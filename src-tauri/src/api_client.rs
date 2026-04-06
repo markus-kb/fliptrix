@@ -8,7 +8,7 @@
 //! real-time streaming. Rate-limit handling is intentionally simple: surface
 //! the error and let the caller fall back to cached data.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, SecondsFormat, Utc};
 
 use crate::models::{Post, XApiError, XApiIncludes, XApiTweetResponse, XApiUserLookupResponse};
 
@@ -30,6 +30,12 @@ fn x_api_base() -> String {
         }
         Err(_) => DEFAULT_X_API_BASE.to_string(),
     }
+}
+
+fn format_start_time_for_x(start: DateTime<Utc>) -> String {
+    // X's timeline endpoint accepts RFC3339 timestamps with second or
+    // millisecond precision; higher precision can be rejected as invalid.
+    start.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
 /// Fields requested on every tweet endpoint call.
@@ -140,7 +146,7 @@ impl XApiClient {
         ]);
 
         if let Some(start) = start_time {
-            request = request.query(&[("start_time", &start.to_rfc3339())]);
+            request = request.query(&[("start_time", &format_start_time_for_x(start))]);
         }
 
         let resp = request
@@ -565,6 +571,20 @@ mod tests {
     fn test_client_accepts_valid_token() {
         let result = XApiClient::new("valid_bearer_token_123".into());
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_formats_start_time_for_x_with_milliseconds_precision() {
+        use chrono::{TimeZone, Timelike};
+
+        let start = Utc
+            .with_ymd_and_hms(2026, 4, 3, 12, 48, 41)
+            .unwrap()
+            .with_nanosecond(719_190_900)
+            .unwrap();
+
+        let formatted = format_start_time_for_x(start);
+        assert_eq!(formatted, "2026-04-03T12:48:41.719Z");
     }
 
     #[test]

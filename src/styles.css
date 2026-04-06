@@ -119,6 +119,18 @@ h1 {
   text-transform: uppercase;
 }
 
+.screensaver-rendered-posts {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* -----------------------------------------------------------------------
    FlipFlap canvas — fills the screensaver overlay
    ----------------------------------------------------------------------- */
@@ -250,6 +262,54 @@ h1 {
 
 .renderer-tab-panel {
   margin-top: 0.75rem;
+}
+
+.cache-overview {
+  margin-top: 0.9rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 181, 99, 0.22);
+  border-radius: 0.75rem;
+  background: rgba(9, 11, 15, 0.45);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.cache-overview-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .cache-overview-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cache-overview-mode {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.cache-overview-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.2rem;
+  max-height: 9.5rem;
+  overflow: auto;
+}
+
+.cache-overview-item {
+  color: rgba(248, 242, 232, 0.76);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.cache-overview-item--empty {
+  color: rgba(248, 242, 232, 0.5);
+  list-style: none;
+  margin-left: -0.25rem;
 }
 
 /* Checkbox variant — horizontal layout */
