@@ -1,7 +1,7 @@
 export const DEFAULT_BACKGROUND_PULSE_SPEED = 1;
 
-const PULSE_MIN_ZOOM = 1.08;
-const PULSE_ZOOM_DELTA = 0.04;
+const PULSE_MIN_ZOOM = 1.05;
+const PULSE_ZOOM_DELTA = 0.1;
 
 export interface CoverPlacementInput {
   viewportWidth: number;
@@ -71,7 +71,7 @@ export function computePulseTransform(input: PulseTransformInput): ImageTransfor
     : DEFAULT_BACKGROUND_PULSE_SPEED;
 
   // Gentle pulsating zoom - no drift, just breathing effect
-  const zoomPhase = Math.sin(timeSec * clampedSpeed * 0.08);
+  const zoomPhase = Math.sin(timeSec * clampedSpeed * 0.4);
   const scaleMultiplier = PULSE_MIN_ZOOM + ((zoomPhase + 1) / 2) * PULSE_ZOOM_DELTA;
 
   return computeCoverPlacement({
