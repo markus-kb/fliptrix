@@ -173,6 +173,52 @@ describe("setTargetText", () => {
     expect(board.cells[0][1].target).toBe(" ");
     expect(board.cells[0][2].target).toBe("B");
   });
+
+  it("keeps non-latin characters by inserting them into the active drum", () => {
+    const board = createBoard({ rows: 1, cols: 1 });
+    setTargetText(board, ["東"], { random: () => 0 });
+
+    expect(board.cells[0][0].target).toBe("東");
+    expect(board.cells[0][0].stepsRemaining).toBeGreaterThan(0);
+
+    while (board.cells[0][0].stepsRemaining > 0) {
+      advanceBoard(board);
+    }
+
+    expect(board.cells[0][0].current).toBe("東");
+  });
+
+  it("uses the same insertion position for repeated non-latin characters", () => {
+    const board = createBoard({ rows: 1, cols: 2 });
+    setTargetText(board, ["東東"], { random: () => 0.37 });
+
+    expect(board.cells[0][0].stepsRemaining).toBe(board.cells[0][1].stepsRemaining);
+  });
+
+  it("rebuilds non-latin insertion positions for each new target text", () => {
+    const first = createBoard({ rows: 1, cols: 1 });
+    setTargetText(first, ["東"], { random: () => 0 });
+
+    const second = createBoard({ rows: 1, cols: 1 });
+    setTargetText(second, ["東"], { random: () => 0.5 });
+
+    expect(first.activeCharToIndex.get("東")).toBe(0);
+    expect(second.activeCharToIndex.get("東")).toBe(24);
+  });
+
+  it("normalizes current characters that no longer exist in the new tweet drum", () => {
+    const board = createBoard({ rows: 1, cols: 1 });
+    setTargetText(board, ["東"], { random: () => 0 });
+    while (board.cells[0][0].stepsRemaining > 0) {
+      advanceBoard(board);
+    }
+
+    setTargetText(board, [" "]);
+
+    expect(board.cells[0][0].current).toBe(" ");
+    expect(board.cells[0][0].target).toBe(" ");
+    expect(board.cells[0][0].stepsRemaining).toBe(0);
+  });
 });
 
 describe("advanceBoard", () => {

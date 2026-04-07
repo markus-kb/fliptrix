@@ -15,8 +15,19 @@ function isTransientWindowError(error) {
 export async function setFieldValue(browser, selector, value) {
   const field = await browser.$(selector);
   await field.waitForDisplayed({ timeout: 15_000 });
-  await field.clearValue();
-  await field.setValue(String(value));
+  await field.click();
+  await browser.execute(
+    (sel, val) => {
+      const el = document.querySelector(sel);
+      if (el) {
+        el.value = val;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    },
+    selector,
+    String(value),
+  );
 }
 
 export async function clickButton(browser, selector) {

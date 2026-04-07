@@ -3,8 +3,9 @@
  *
  * This module has zero DOM, canvas, or audio dependencies. It models the
  * split-flap display as a grid of cells, each rotating forward-only through
- * a fixed character set. The deterministic tick model makes it fully testable
- * without animation timers.
+ * an active character set. The active set starts from the Latin drum and can
+ * be extended per post with non-Latin characters. The deterministic tick model
+ * makes it fully testable without animation timers.
  *
  * Real split-flap displays rotate forward through a fixed drum of characters.
  * To reach a character that appears "earlier" in the set, the flap must cycle
@@ -16,7 +17,9 @@
  *
  * Modeled after real Solari boards: space, then letters A-Z, then digits 0-9,
  * then common punctuation. Every flap cell cycles forward through this exact
- * sequence. Characters not in this set are mapped to space.
+ * sequence. Characters not in this base set are either inserted into the
+ * active per-post drum (for visible non-whitespace characters) or mapped to
+ * space.
  */
 export const CHAR_SET: readonly string[] = [
   " ",
@@ -82,16 +85,6 @@ export function charIndex(ch: string): number {
 }
 
 /**
- * Normalize a character for the split-flap display.
- * Converts to uppercase and maps unknown characters to space.
- */
-function normalizeChar(ch: string): string {
-  const upper = ch.toUpperCase();
-  if (charToIndex.has(upper)) return upper;
-  return " ";
-}
-
-/**
  * Calculate how many forward steps are needed to rotate from `current` to `target`.
  *
  * Forward-only: if target is at or after current, it's a simple difference.
@@ -128,6 +121,8 @@ export interface FlapBoard {
   rows: number;
   cols: number;
   cells: FlapCell[][];
+  activeCharSet: readonly string[];
+  activeCharToIndex: ReadonlyMap<string, number>;
 }
 
 /** Position of a cell on the board — returned by advanceBoard for audio sync. */
@@ -146,27 +141,59 @@ export function createBoard(config: BoardConfig): FlapBoard {
     }
     cells.push(row);
   }
-  return { rows: config.rows, cols: config.cols, cells };
+  return {
+    rows: config.rows,
+    cols: config.cols,
+    cells,
+    activeCharSet: CHAR_SET,
+    activeCharToIndex: charToIndex,
+  };
+}
+
+export interface SetTargetTextOptions {
+  random?: () => number;
 }
 
 /**
  * Set the target text for the board.
  *
- * Each element of `lines` becomes one row. Characters are normalized (uppercase,
- * unknown → space). Short lines are padded, long lines truncated. Fewer lines
- * than rows results in blank rows at the bottom.
+ * Each element of `lines` becomes one row. Characters are normalized to the
+ * active drum for this tweet window: base Latin characters are uppercased,
+ * repeated non-Latin characters reuse the same random insertion, and
+ * unsupported whitespace-like characters map to space. Short lines are padded,
+ * long lines truncated. Fewer lines than rows results in blank rows at the
+ * bottom.
  *
  * This recomputes `stepsRemaining` for every cell based on the distance from
  * its current character to the new target.
  */
-export function setTargetText(board: FlapBoard, lines: string[]): void {
+export function setTargetText(
+  board: FlapBoard,
+  lines: string[],
+  options?: SetTargetTextOptions,
+): void {
+  const random = options?.random ?? Math.random;
+  const activeCharSet = buildActiveCharSet(lines, random);
+  const activeCharToIndex = new Map(activeCharSet.map((ch, i) => [ch, i]));
+  board.activeCharSet = activeCharSet;
+  board.activeCharToIndex = activeCharToIndex;
+
   for (let r = 0; r < board.rows; r++) {
     const line = r < lines.length ? lines[r] : "";
     for (let c = 0; c < board.cols; c++) {
-      const ch = c < line.length ? normalizeChar(line[c]) : " ";
+      const ch = c < line.length ? normalizeCharForSet(line[c], activeCharToIndex) : " ";
       const cell = board.cells[r][c];
+      const normalizedCurrent = normalizeCharForSet(cell.current, activeCharToIndex);
+      if (normalizedCurrent !== cell.current) {
+        cell.current = normalizedCurrent;
+      }
       cell.target = ch;
-      cell.stepsRemaining = stepsToTarget(cell.current, ch);
+      cell.stepsRemaining = stepsToTargetInSet(
+        cell.current,
+        ch,
+        activeCharToIndex,
+        activeCharSet.length,
+      );
     }
   }
 }
@@ -185,15 +212,58 @@ export function advanceBoard(board: FlapBoard): CellPosition[] {
       const cell = board.cells[r][c];
       if (cell.stepsRemaining <= 0) continue;
 
-      const currentIdx = charIndex(cell.current);
-      const nextIdx = (currentIdx + 1) % CHAR_SET.length;
-      cell.current = CHAR_SET[nextIdx];
+      const currentIdx = board.activeCharToIndex.get(cell.current.toUpperCase()) ?? 0;
+      const nextIdx = (currentIdx + 1) % board.activeCharSet.length;
+      cell.current = board.activeCharSet[nextIdx];
       cell.stepsRemaining--;
       flipped.push({ row: r, col: c });
     }
   }
 
   return flipped;
+}
+
+function buildActiveCharSet(lines: string[], random: () => number): readonly string[] {
+  const active = [...CHAR_SET];
+  const seenExtra = new Set<string>();
+
+  for (const line of lines) {
+    for (let i = 0; i < line.length; i++) {
+      const upper = line[i].toUpperCase();
+      if (charToIndex.has(upper)) continue;
+      if (isWhitespaceLike(upper)) continue;
+      if (seenExtra.has(upper)) continue;
+
+      seenExtra.add(upper);
+      const insertion = Math.floor(random() * (active.length + 1));
+      active.splice(insertion, 0, upper);
+    }
+  }
+
+  return active;
+}
+
+function normalizeCharForSet(ch: string, lookup: ReadonlyMap<string, number>): string {
+  const upper = ch.toUpperCase();
+  if (lookup.has(upper)) return upper;
+  return " ";
+}
+
+function stepsToTargetInSet(
+  current: string,
+  target: string,
+  lookup: ReadonlyMap<string, number>,
+  setLength: number,
+): number {
+  const from = lookup.get(current.toUpperCase()) ?? 0;
+  const to = lookup.get(target.toUpperCase()) ?? 0;
+  if (from === to) return 0;
+  if (to > from) return to - from;
+  return setLength - from + to;
+}
+
+function isWhitespaceLike(ch: string): boolean {
+  return ch.trim().length === 0;
 }
 
 /** Check whether all cells have reached their targets. */
