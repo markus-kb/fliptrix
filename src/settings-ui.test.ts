@@ -306,6 +306,59 @@ describe("initSettingsUi", () => {
     expect(speedRange.value).toBe("1");
   });
 
+  it("updates the volume output without changing the swirl output", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const volumeRange = root.querySelector<HTMLInputElement>('[name="flipflap_volume"]');
+    const volumeOutput = root.querySelector<HTMLOutputElement>('output[for="flipflap_volume"]');
+    const swirlOutput = root.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
+
+    if (!volumeRange || !volumeOutput || !swirlOutput) {
+      throw new Error("missing range outputs");
+    }
+
+    expect(volumeOutput.textContent).toBe("0.60");
+    expect(swirlOutput.textContent).toBe("1.0");
+
+    volumeRange.value = "0.35";
+    volumeRange.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(volumeOutput.textContent).toBe("0.35");
+    expect(swirlOutput.textContent).toBe("1.0");
+  });
+
+  it("reset restores volume and swirl outputs independently", async () => {
+    getSettingsMock.mockResolvedValue({
+      ...cloneDefaultSettings(),
+      flipflap_volume: 0.35,
+      flipflap_background_swirl_speed: 1.7,
+    });
+
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const resetBtn = root.querySelector<HTMLButtonElement>("#reset-btn");
+    const volumeOutput = root.querySelector<HTMLOutputElement>('output[for="flipflap_volume"]');
+    const swirlOutput = root.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
+
+    if (!resetBtn || !volumeOutput || !swirlOutput) {
+      throw new Error("missing reset controls");
+    }
+
+    expect(volumeOutput.textContent).toBe("0.35");
+    expect(swirlOutput.textContent).toBe("1.7");
+
+    resetBtn.click();
+
+    expect(volumeOutput.textContent).toBe("0.60");
+    expect(swirlOutput.textContent).toBe("1.0");
+  });
+
   it("defaults renderer tabs to FlipFlap", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");

@@ -446,7 +446,7 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
 
   // Live-update the volume range output label.
   const volumeRange = form.querySelector<HTMLInputElement>('[name="flipflap_volume"]');
-  const volumeOutput = form.querySelector<HTMLOutputElement>(".range-output");
+  const volumeOutput = form.querySelector<HTMLOutputElement>('output[for="flipflap_volume"]');
   volumeRange?.addEventListener("input", () => {
     if (volumeOutput) {
       volumeOutput.textContent = Number(volumeRange.value).toFixed(2);
@@ -667,7 +667,7 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
   }
 
   // Update the volume output label.
-  const volumeOutput = form.querySelector<HTMLOutputElement>(".range-output");
+  const volumeOutput = form.querySelector<HTMLOutputElement>('output[for="flipflap_volume"]');
   if (volumeOutput) {
     volumeOutput.textContent = Number(s.flipflap_volume).toFixed(2);
   }
