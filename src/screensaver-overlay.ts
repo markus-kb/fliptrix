@@ -199,7 +199,7 @@ async function startFlipFlapRenderer(
     postRotationSec: settings.flipflap_rotation_secs,
     backgroundImageUrl: resolveFlipFlapBackgroundImageUrl(settings.flipflap_background_image),
     backgroundAnimationEnabled: settings.flipflap_background_animation_enabled,
-    backgroundSwirlSpeed: settings.flipflap_background_swirl_speed,
+    backgroundPulseSpeed: settings.flipflap_background_pulse_speed,
     audio: {
       masterVolume: settings.flipflap_volume,
       pitchCenter: 1800,

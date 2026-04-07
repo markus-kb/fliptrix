@@ -145,15 +145,15 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
           <label class="field field-checkbox">
             <input type="checkbox" name="flipflap_background_animation_enabled"
               ${s.flipflap_background_animation_enabled ? "checked" : ""} />
-            <span class="field-label">Enable gentle drift animation</span>
+            <span class="field-label">Enable gentle pulse animation</span>
           </label>
 
-          <label class="field" id="flipflap-bg-swirl-speed-field"
+          <label class="field" id="flipflap-bg-pulse-speed-field"
             ${s.flipflap_background_animation_enabled ? "" : 'style="display:none"'}>
-            <span class="field-label">Drift speed</span>
-            <input type="range" name="flipflap_background_swirl_speed" min="0.1" max="3" step="0.1"
-              value="${s.flipflap_background_swirl_speed}" />
-            <output class="range-output" id="flipflap-bg-swirl-speed-output" for="flipflap_background_swirl_speed">${s.flipflap_background_swirl_speed.toFixed(1)}</output>
+            <span class="field-label">Pulse speed</span>
+            <input type="range" name="flipflap_background_pulse_speed" min="0.1" max="3" step="0.1"
+              value="${s.flipflap_background_pulse_speed}" />
+            <output class="range-output" id="flipflap-bg-pulse-speed-output" for="flipflap_background_pulse_speed">${s.flipflap_background_pulse_speed.toFixed(1)}</output>
           </label>
         </fieldset>
 
@@ -438,7 +438,7 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
     '[name="flipflap_background_animation_enabled"]',
   );
   backgroundAnimationCheckbox?.addEventListener("change", () => {
-    syncFlipFlapBackgroundSwirlVisibility(form);
+    syncFlipFlapBackgroundPulseVisibility(form);
   });
 
   // Renderer tabs.
@@ -453,13 +453,13 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
     }
   });
 
-  const swirlRange = form.querySelector<HTMLInputElement>(
-    '[name="flipflap_background_swirl_speed"]',
+  const pulseRange = form.querySelector<HTMLInputElement>(
+    '[name="flipflap_background_pulse_speed"]',
   );
-  const swirlOutput = form.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
-  swirlRange?.addEventListener("input", () => {
-    if (swirlOutput) {
-      swirlOutput.textContent = Number(swirlRange.value).toFixed(1);
+  const pulseOutput = form.querySelector<HTMLOutputElement>("#flipflap-bg-pulse-speed-output");
+  pulseRange?.addEventListener("input", () => {
+    if (pulseOutput) {
+      pulseOutput.textContent = Number(pulseRange.value).toFixed(1);
     }
   });
 
@@ -583,9 +583,9 @@ function readFormValues(form: HTMLFormElement, fallback: AppSettings): AppSettin
       "flipflap_background_animation_enabled",
       fallback.flipflap_background_animation_enabled,
     ),
-    flipflap_background_swirl_speed: num(
-      "flipflap_background_swirl_speed",
-      fallback.flipflap_background_swirl_speed,
+    flipflap_background_pulse_speed: num(
+      "flipflap_background_pulse_speed",
+      fallback.flipflap_background_pulse_speed,
     ),
     flipflap_accounts: parseAccountsField(
       str("flipflap_accounts", formatAccountsField(fallback.flipflap_accounts)),
@@ -624,7 +624,7 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     flipflap_rotation_secs: s.flipflap_rotation_secs,
     flipflap_volume: s.flipflap_volume,
     flipflap_background_image: s.flipflap_background_image ?? "",
-    flipflap_background_swirl_speed: s.flipflap_background_swirl_speed,
+    flipflap_background_pulse_speed: s.flipflap_background_pulse_speed,
     flipflap_search_query: s.flipflap_search_query,
     flipflap_time_window_hours: s.flipflap_time_window_hours,
     flipflap_truncation_chars: s.flipflap_truncation_chars,
@@ -672,13 +672,13 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     volumeOutput.textContent = Number(s.flipflap_volume).toFixed(2);
   }
 
-  const swirlOutput = form.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
-  if (swirlOutput) {
-    swirlOutput.textContent = Number(s.flipflap_background_swirl_speed).toFixed(1);
+  const pulseOutput = form.querySelector<HTMLOutputElement>("#flipflap-bg-pulse-speed-output");
+  if (pulseOutput) {
+    pulseOutput.textContent = Number(s.flipflap_background_pulse_speed).toFixed(1);
   }
 
   syncModeSwitchVisibility(form);
-  syncFlipFlapBackgroundSwirlVisibility(form);
+  syncFlipFlapBackgroundPulseVisibility(form);
 }
 
 function syncModeSwitchVisibility(form: HTMLFormElement): void {
@@ -691,17 +691,17 @@ function syncModeSwitchVisibility(form: HTMLFormElement): void {
   switchIntervalField.style.display = modeSelect.value === "both" ? "" : "none";
 }
 
-function syncFlipFlapBackgroundSwirlVisibility(form: HTMLFormElement): void {
+function syncFlipFlapBackgroundPulseVisibility(form: HTMLFormElement): void {
   const animationCheckbox = form.querySelector<HTMLInputElement>(
     '[name="flipflap_background_animation_enabled"]',
   );
-  const swirlField = form.querySelector<HTMLElement>("#flipflap-bg-swirl-speed-field");
+  const pulseField = form.querySelector<HTMLElement>("#flipflap-bg-pulse-speed-field");
 
-  if (!animationCheckbox || !swirlField) {
+  if (!animationCheckbox || !pulseField) {
     return;
   }
 
-  swirlField.style.display = animationCheckbox.checked ? "" : "none";
+  pulseField.style.display = animationCheckbox.checked ? "" : "none";
 }
 
 function buildFlipFlapBackgroundOptions(selectedFileName: string | null): string {

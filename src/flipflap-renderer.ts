@@ -11,7 +11,7 @@
  * `setPostContent()` and the renderer transitions the board to it.
  */
 
-import { BackgroundImageManager, DEFAULT_BACKGROUND_SWIRL_SPEED } from "./background-image";
+import { BackgroundImageManager, DEFAULT_BACKGROUND_PULSE_SPEED } from "./background-image";
 import { type FlipAudioConfig, FlipSoundPlayer } from "./flipflap-audio";
 import type { FlapBoard, PostEntry } from "./flipflap-state";
 import {
@@ -37,10 +37,10 @@ export interface FlipFlapConfig {
   audio: FlipAudioConfig | null;
   /** Fullscreen background image URL shown behind the board. */
   backgroundImageUrl: string | null;
-  /** Enables subtle background drift animation to reduce static burn-in. */
+  /** Enables subtle background pulsating animation to reduce static burn-in. */
   backgroundAnimationEnabled: boolean;
-  /** Speed multiplier for the drift animation. */
-  backgroundSwirlSpeed: number;
+  /** Speed multiplier for the pulsating animation. */
+  backgroundPulseSpeed: number;
   /** Emits the currently targeted board lines whenever post window changes. */
   onVisibleLinesChange?: (lines: string[]) => void;
 }
@@ -54,7 +54,7 @@ export const DEFAULT_FLIPFLAP_CONFIG: FlipFlapConfig = {
   audio: null, // Populated by FlipFlapRenderer from default audio config
   backgroundImageUrl: null,
   backgroundAnimationEnabled: true,
-  backgroundSwirlSpeed: DEFAULT_BACKGROUND_SWIRL_SPEED,
+  backgroundPulseSpeed: DEFAULT_BACKGROUND_PULSE_SPEED,
   onVisibleLinesChange: undefined,
 };
 
@@ -258,7 +258,7 @@ export class FlipFlapRenderer {
       width,
       height,
       this.config.backgroundAnimationEnabled,
-      this.config.backgroundSwirlSpeed,
+      this.config.backgroundPulseSpeed,
       performance.now(),
     );
 

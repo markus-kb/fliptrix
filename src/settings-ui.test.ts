@@ -291,7 +291,7 @@ describe("initSettingsUi", () => {
       '[name="flipflap_background_animation_enabled"]',
     );
     const speedRange = root.querySelector<HTMLInputElement>(
-      '[name="flipflap_background_swirl_speed"]',
+      '[name="flipflap_background_pulse_speed"]',
     );
 
     if (!select || !animationCheckbox || !speedRange) {
@@ -306,7 +306,7 @@ describe("initSettingsUi", () => {
     expect(speedRange.value).toBe("1");
   });
 
-  it("updates the volume output without changing the swirl output", async () => {
+  it("updates the volume output without changing the pulse output", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");
 
@@ -314,27 +314,27 @@ describe("initSettingsUi", () => {
 
     const volumeRange = root.querySelector<HTMLInputElement>('[name="flipflap_volume"]');
     const volumeOutput = root.querySelector<HTMLOutputElement>('output[for="flipflap_volume"]');
-    const swirlOutput = root.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
+    const pulseOutput = root.querySelector<HTMLOutputElement>("#flipflap-bg-pulse-speed-output");
 
-    if (!volumeRange || !volumeOutput || !swirlOutput) {
+    if (!volumeRange || !volumeOutput || !pulseOutput) {
       throw new Error("missing range outputs");
     }
 
     expect(volumeOutput.textContent).toBe("0.60");
-    expect(swirlOutput.textContent).toBe("1.0");
+    expect(pulseOutput.textContent).toBe("1.0");
 
     volumeRange.value = "0.35";
     volumeRange.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(volumeOutput.textContent).toBe("0.35");
-    expect(swirlOutput.textContent).toBe("1.0");
+    expect(pulseOutput.textContent).toBe("1.0");
   });
 
-  it("reset restores volume and swirl outputs independently", async () => {
+  it("reset restores volume and pulse outputs independently", async () => {
     getSettingsMock.mockResolvedValue({
       ...cloneDefaultSettings(),
       flipflap_volume: 0.35,
-      flipflap_background_swirl_speed: 1.7,
+      flipflap_background_pulse_speed: 1.7,
     });
 
     const root = document.querySelector<HTMLElement>("#root");
@@ -344,19 +344,19 @@ describe("initSettingsUi", () => {
 
     const resetBtn = root.querySelector<HTMLButtonElement>("#reset-btn");
     const volumeOutput = root.querySelector<HTMLOutputElement>('output[for="flipflap_volume"]');
-    const swirlOutput = root.querySelector<HTMLOutputElement>("#flipflap-bg-swirl-speed-output");
+    const pulseOutput = root.querySelector<HTMLOutputElement>("#flipflap-bg-pulse-speed-output");
 
-    if (!resetBtn || !volumeOutput || !swirlOutput) {
+    if (!resetBtn || !volumeOutput || !pulseOutput) {
       throw new Error("missing reset controls");
     }
 
     expect(volumeOutput.textContent).toBe("0.35");
-    expect(swirlOutput.textContent).toBe("1.7");
+    expect(pulseOutput.textContent).toBe("1.7");
 
     resetBtn.click();
 
     expect(volumeOutput.textContent).toBe("0.60");
-    expect(swirlOutput.textContent).toBe("1.0");
+    expect(pulseOutput.textContent).toBe("1.0");
   });
 
   it("defaults renderer tabs to FlipFlap", async () => {
@@ -494,7 +494,7 @@ describe("initSettingsUi", () => {
       '[name="flipflap_background_animation_enabled"]',
     );
     const speedRange = root.querySelector<HTMLInputElement>(
-      '[name="flipflap_background_swirl_speed"]',
+      '[name="flipflap_background_pulse_speed"]',
     );
 
     if (!form || !select || !animationCheckbox || !speedRange) {
@@ -517,7 +517,7 @@ describe("initSettingsUi", () => {
       expect.objectContaining({
         flipflap_background_image: "airport1.jpg",
         flipflap_background_animation_enabled: false,
-        flipflap_background_swirl_speed: 1.7,
+        flipflap_background_pulse_speed: 1.7,
       }),
     );
 

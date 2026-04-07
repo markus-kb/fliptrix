@@ -27,7 +27,7 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.flipflap_volume).toBeCloseTo(0.6);
     expect(DEFAULT_SETTINGS.flipflap_background_image).toBeNull();
     expect(DEFAULT_SETTINGS.flipflap_background_animation_enabled).toBe(true);
-    expect(DEFAULT_SETTINGS.flipflap_background_swirl_speed).toBe(1);
+    expect(DEFAULT_SETTINGS.flipflap_background_pulse_speed).toBe(1);
   });
 
   it("has expected Matrix defaults", () => {

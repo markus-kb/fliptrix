@@ -1,8 +1,7 @@
-export const DEFAULT_BACKGROUND_SWIRL_SPEED = 1;
+export const DEFAULT_BACKGROUND_PULSE_SPEED = 1;
 
-const SWIRL_MIN_ZOOM = 1.08;
-const SWIRL_ZOOM_DELTA = 0.04;
-const SWIRL_DRIFT_RATIO = 0.7;
+const PULSE_MIN_ZOOM = 1.08;
+const PULSE_ZOOM_DELTA = 0.04;
 
 export interface CoverPlacementInput {
   viewportWidth: number;
@@ -19,13 +18,13 @@ export interface ImageTransform {
   drawHeight: number;
 }
 
-export interface SwirlTransformInput {
+export interface PulseTransformInput {
   viewportWidth: number;
   viewportHeight: number;
   imageWidth: number;
   imageHeight: number;
   animationEnabled: boolean;
-  swirlSpeed: number;
+  pulseSpeed: number;
   nowMs: number;
 }
 
@@ -45,14 +44,14 @@ export function computeCoverPlacement(input: CoverPlacementInput): ImageTransfor
   };
 }
 
-export function computeSwirlTransform(input: SwirlTransformInput): ImageTransform {
+export function computePulseTransform(input: PulseTransformInput): ImageTransform {
   const {
     viewportWidth,
     viewportHeight,
     imageWidth,
     imageHeight,
     animationEnabled,
-    swirlSpeed,
+    pulseSpeed,
     nowMs,
   } = input;
 
@@ -67,32 +66,21 @@ export function computeSwirlTransform(input: SwirlTransformInput): ImageTransfor
   }
 
   const timeSec = nowMs / 1000;
-  const clampedSpeed = Number.isFinite(swirlSpeed)
-    ? Math.min(Math.max(swirlSpeed, 0.1), 3)
-    : DEFAULT_BACKGROUND_SWIRL_SPEED;
+  const clampedSpeed = Number.isFinite(pulseSpeed)
+    ? Math.min(Math.max(pulseSpeed, 0.1), 3)
+    : DEFAULT_BACKGROUND_PULSE_SPEED;
 
+  // Gentle pulsating zoom - no drift, just breathing effect
   const zoomPhase = Math.sin(timeSec * clampedSpeed * 0.08);
-  const scaleMultiplier = SWIRL_MIN_ZOOM + ((zoomPhase + 1) / 2) * SWIRL_ZOOM_DELTA;
-  const placement = computeCoverPlacement({
+  const scaleMultiplier = PULSE_MIN_ZOOM + ((zoomPhase + 1) / 2) * PULSE_ZOOM_DELTA;
+
+  return computeCoverPlacement({
     viewportWidth,
     viewportHeight,
     imageWidth,
     imageHeight,
     scaleMultiplier,
   });
-
-  const spareX = Math.max(0, (placement.drawWidth - viewportWidth) / 2);
-  const spareY = Math.max(0, (placement.drawHeight - viewportHeight) / 2);
-
-  const driftX = Math.sin(timeSec * clampedSpeed * 0.23) * spareX * SWIRL_DRIFT_RATIO;
-  const driftY = Math.sin(timeSec * clampedSpeed * 0.31 + Math.PI / 4) * spareY * SWIRL_DRIFT_RATIO;
-
-  return {
-    drawX: placement.drawX + driftX,
-    drawY: placement.drawY + driftY,
-    drawWidth: placement.drawWidth,
-    drawHeight: placement.drawHeight,
-  };
 }
 
 export class BackgroundImageManager {
@@ -109,7 +97,7 @@ export class BackgroundImageManager {
     viewportWidth: number,
     viewportHeight: number,
     animationEnabled: boolean,
-    swirlSpeed: number,
+    pulseSpeed: number,
     nowMs: number,
   ): boolean {
     if (
@@ -121,13 +109,13 @@ export class BackgroundImageManager {
       return false;
     }
 
-    const transform = computeSwirlTransform({
+    const transform = computePulseTransform({
       viewportWidth,
       viewportHeight,
       imageWidth: this.image.naturalWidth,
       imageHeight: this.image.naturalHeight,
       animationEnabled,
-      swirlSpeed,
+      pulseSpeed,
       nowMs,
     });
 

@@ -14,7 +14,7 @@ describe("DEFAULT_FLIPFLAP_CONFIG", () => {
     expect(DEFAULT_FLIPFLAP_CONFIG.postRotationSec).toBe(6);
     expect(DEFAULT_FLIPFLAP_CONFIG.backgroundImageUrl).toBeNull();
     expect(DEFAULT_FLIPFLAP_CONFIG.backgroundAnimationEnabled).toBe(true);
-    expect(DEFAULT_FLIPFLAP_CONFIG.backgroundSwirlSpeed).toBe(1);
+    expect(DEFAULT_FLIPFLAP_CONFIG.backgroundPulseSpeed).toBe(1);
   });
 });
 
