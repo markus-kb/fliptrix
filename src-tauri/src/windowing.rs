@@ -6,7 +6,7 @@
 //! mapping remain unit-testable on headless servers.
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
+use tauri::{window::Color, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 // ---------------------------------------------------------------------------
 // Pure data types — testable without a running Tauri app
@@ -114,6 +114,7 @@ pub fn create_screensaver_windows<R: Runtime>(app: &AppHandle<R>) -> Vec<String>
             .resizable(false)
             .skip_taskbar(true)
             .focused(i == 0) // Focus only the first window
+            .background_color(Color(0, 0, 0, 255))
             .visible(true);
 
         match builder.build() {
