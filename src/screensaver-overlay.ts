@@ -53,7 +53,7 @@ let swapTimerId: ReturnType<typeof setTimeout> | null = null;
 export function initScreensaverOverlay(root: HTMLElement): void {
   root.innerHTML = `
     <div class="screensaver-overlay">
-      <canvas id="screensaver-canvas"></canvas>
+      <canvas id="screensaver-canvas" style="background:#000"></canvas>
       <output id="screensaver-rendered-posts" class="screensaver-rendered-posts" aria-live="polite"></output>
     </div>
   `;
