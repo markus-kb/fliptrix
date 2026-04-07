@@ -202,8 +202,63 @@ describe("setTargetText", () => {
     const second = createBoard({ rows: 1, cols: 1 });
     setTargetText(second, ["東"], { random: () => 0.5 });
 
-    expect(first.activeCharToIndex.get("東")).toBe(0);
-    expect(second.activeCharToIndex.get("東")).toBe(24);
+    expect(first.cells[0][0].activeCharToIndex.get("東")).toBe(0);
+    expect(second.cells[0][0].activeCharToIndex.get("東")).toBe(24);
+  });
+
+  it("assigns per-cell activeCharSet so each drum only has its own non-latin char", () => {
+    const board = createBoard({ rows: 1, cols: 2 });
+    setTargetText(board, ["東京"], { random: () => 0.5 });
+
+    // Cell 0 target is "東" — its drum should contain "東" but NOT "京"
+    expect(board.cells[0][0].activeCharSet).toContain("東");
+    expect(board.cells[0][0].activeCharSet).not.toContain("京");
+
+    // Cell 1 target is "京" — its drum should contain "京" but NOT "東"
+    expect(board.cells[0][1].activeCharSet).toContain("京");
+    expect(board.cells[0][1].activeCharSet).not.toContain("東");
+  });
+
+  it("uses same drum position for same non-latin char across cells", () => {
+    const board = createBoard({ rows: 1, cols: 2 });
+    setTargetText(board, ["東東"], { random: () => 0.5 });
+
+    const idx0 = board.cells[0][0].activeCharToIndex.get("東");
+    const idx1 = board.cells[0][1].activeCharToIndex.get("東");
+    expect(idx0).toBe(idx1);
+  });
+
+  it("each cell only rotates through its own drum to reach target", () => {
+    const board = createBoard({ rows: 1, cols: 2 });
+    setTargetText(board, ["東京"], { random: () => 0 });
+
+    // With random() => 0, "東" is inserted at position 0 in cell 0's drum
+    // Cell 0 needs to cycle through its drum to reach "東"
+    while (board.cells[0][0].stepsRemaining > 0) {
+      advanceBoard(board);
+    }
+    expect(board.cells[0][0].current).toBe("東");
+
+    // Cell 1 needs to cycle through its drum to reach "京"
+    while (board.cells[0][1].stepsRemaining > 0) {
+      advanceBoard(board);
+    }
+    expect(board.cells[0][1].current).toBe("京");
+  });
+
+  it("cell with latin target has no non-latin chars in its drum", () => {
+    const board = createBoard({ rows: 1, cols: 2 });
+    setTargetText(board, ["A東"], { random: () => 0.5 });
+
+    // Cell 0 target is "A" — drum should only contain base latin chars
+    expect(board.cells[0][0].activeCharSet).toContain("A");
+    expect(board.cells[0][0].activeCharSet).not.toContain("東");
+    expect(board.cells[0][0].activeCharSet.length).toBe(CHAR_SET.length);
+
+    // Cell 1 target is "東" — drum should contain base latin chars + "東"
+    expect(board.cells[0][1].activeCharSet).toContain("A");
+    expect(board.cells[0][1].activeCharSet).toContain("東");
+    expect(board.cells[0][1].activeCharSet.length).toBe(CHAR_SET.length + 1);
   });
 
   it("normalizes current characters that no longer exist in the new tweet drum", () => {

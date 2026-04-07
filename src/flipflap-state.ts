@@ -114,6 +114,10 @@ export interface FlapCell {
   target: string;
   /** How many forward steps remain before reaching the target. */
   stepsRemaining: number;
+  /** Per-cell character set — only includes the non-latin char this cell needs. */
+  activeCharSet: readonly string[];
+  /** Per-cell lookup from character to index in activeCharSet. */
+  activeCharToIndex: ReadonlyMap<string, number>;
 }
 
 /** The complete board state — a grid of flap cells. */
@@ -121,8 +125,6 @@ export interface FlapBoard {
   rows: number;
   cols: number;
   cells: FlapCell[][];
-  activeCharSet: readonly string[];
-  activeCharToIndex: ReadonlyMap<string, number>;
 }
 
 /** Position of a cell on the board — returned by advanceBoard for audio sync. */
@@ -137,7 +139,13 @@ export function createBoard(config: BoardConfig): FlapBoard {
   for (let r = 0; r < config.rows; r++) {
     const row: FlapCell[] = [];
     for (let c = 0; c < config.cols; c++) {
-      row.push({ current: " ", target: " ", stepsRemaining: 0 });
+      row.push({
+        current: " ",
+        target: " ",
+        stepsRemaining: 0,
+        activeCharSet: CHAR_SET,
+        activeCharToIndex: charToIndex,
+      });
     }
     cells.push(row);
   }
@@ -145,8 +153,6 @@ export function createBoard(config: BoardConfig): FlapBoard {
     rows: config.rows,
     cols: config.cols,
     cells,
-    activeCharSet: CHAR_SET,
-    activeCharToIndex: charToIndex,
   };
 }
 
@@ -164,8 +170,9 @@ export interface SetTargetTextOptions {
  * long lines truncated. Fewer lines than rows results in blank rows at the
  * bottom.
  *
- * This recomputes `stepsRemaining` for every cell based on the distance from
- * its current character to the new target.
+ * Each cell gets its own character set containing only its own non-Latin
+ * character (if any). This ensures a cell with target "東" never passes through
+ * "京" during rotation.
  */
 export function setTargetText(
   board: FlapBoard,
@@ -173,27 +180,32 @@ export function setTargetText(
   options?: SetTargetTextOptions,
 ): void {
   const random = options?.random ?? Math.random;
-  const activeCharSet = buildActiveCharSet(lines, random);
-  const activeCharToIndex = new Map(activeCharSet.map((ch, i) => [ch, i]));
-  board.activeCharSet = activeCharSet;
-  board.activeCharToIndex = activeCharToIndex;
+
+  // Collect all unique non-latin characters and assign each a random position.
+  // The same character always gets the same position within one tweet.
+  const charPositions = collectNonLatinCharPositions(lines, random);
 
   for (let r = 0; r < board.rows; r++) {
     const line = r < lines.length ? lines[r] : "";
     for (let c = 0; c < board.cols; c++) {
-      const ch = c < line.length ? normalizeCharForSet(line[c], activeCharToIndex) : " ";
+      const rawChar = c < line.length ? line[c].toUpperCase() : " ";
       const cell = board.cells[r][c];
-      const normalizedCurrent = normalizeCharForSet(cell.current, activeCharToIndex);
-      if (normalizedCurrent !== cell.current) {
-        cell.current = normalizedCurrent;
-      }
-      cell.target = ch;
-      cell.stepsRemaining = stepsToTargetInSet(
-        cell.current,
-        ch,
-        activeCharToIndex,
-        activeCharSet.length,
-      );
+
+      // Build per-cell character set: base Latin set + this cell's non-latin char (if any)
+      const cellCharSet = buildCellCharSet(rawChar, charPositions);
+      const cellLookup = new Map(cellCharSet.map((ch, i) => [ch, i]));
+
+      // Normalize target to what's in the cell's drum
+      const target = cellLookup.has(rawChar) ? rawChar : " ";
+
+      // Normalize current to what's in the cell's drum
+      const current = cellLookup.has(cell.current.toUpperCase()) ? cell.current : " ";
+
+      cell.activeCharSet = cellCharSet;
+      cell.activeCharToIndex = cellLookup;
+      cell.current = current;
+      cell.target = target;
+      cell.stepsRemaining = stepsToTargetInSet(current, target, cellLookup, cellCharSet.length);
     }
   }
 }
@@ -212,9 +224,9 @@ export function advanceBoard(board: FlapBoard): CellPosition[] {
       const cell = board.cells[r][c];
       if (cell.stepsRemaining <= 0) continue;
 
-      const currentIdx = board.activeCharToIndex.get(cell.current.toUpperCase()) ?? 0;
-      const nextIdx = (currentIdx + 1) % board.activeCharSet.length;
-      cell.current = board.activeCharSet[nextIdx];
+      const currentIdx = cell.activeCharToIndex.get(cell.current.toUpperCase()) ?? 0;
+      const nextIdx = (currentIdx + 1) % cell.activeCharSet.length;
+      cell.current = cell.activeCharSet[nextIdx];
       cell.stepsRemaining--;
       flipped.push({ row: r, col: c });
     }
@@ -223,8 +235,15 @@ export function advanceBoard(board: FlapBoard): CellPosition[] {
   return flipped;
 }
 
-function buildActiveCharSet(lines: string[], random: () => number): readonly string[] {
-  const active = [...CHAR_SET];
+/**
+ * Scan all lines and assign each unique non-Latin character a random
+ * insertion index. The same character always gets the same position.
+ */
+function collectNonLatinCharPositions(
+  lines: string[],
+  random: () => number,
+): ReadonlyMap<string, number> {
+  const positions = new Map<string, number>();
   const seenExtra = new Set<string>();
 
   for (const line of lines) {
@@ -235,18 +254,32 @@ function buildActiveCharSet(lines: string[], random: () => number): readonly str
       if (seenExtra.has(upper)) continue;
 
       seenExtra.add(upper);
-      const insertion = Math.floor(random() * (active.length + 1));
-      active.splice(insertion, 0, upper);
+      // Insert at a random position within the base set.
+      // same char across the tweet uses the same insertion index.
+      const insertion = Math.floor(random() * (CHAR_SET.length + 1));
+      positions.set(upper, insertion);
     }
   }
 
-  return active;
+  return positions;
 }
 
-function normalizeCharForSet(ch: string, lookup: ReadonlyMap<string, number>): string {
-  const upper = ch.toUpperCase();
-  if (lookup.has(upper)) return upper;
-  return " ";
+/**
+ * Build a cell-specific character set: base Latin set + the cell's own
+ * non-Latin target character (if any) at its assigned position.
+ */
+function buildCellCharSet(
+  target: string,
+  charPositions: ReadonlyMap<string, number>,
+): readonly string[] {
+  const active = [...CHAR_SET];
+
+  const pos = charPositions.get(target);
+  if (pos !== undefined) {
+    active.splice(pos, 0, target);
+  }
+
+  return active;
 }
 
 function stepsToTargetInSet(
