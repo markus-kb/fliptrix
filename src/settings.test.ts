@@ -53,6 +53,11 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.matrix_truncation_chars).toBe(280);
   });
 
+  it("has expected auto-refresh and startup fetch defaults", () => {
+    expect(DEFAULT_SETTINGS.auto_refresh_hours).toBe(0);
+    expect(DEFAULT_SETTINGS.fetch_on_startup).toBe(false);
+  });
+
   it("is a plain object (spread-cloneable without reference sharing)", () => {
     const copy: AppSettings = { ...DEFAULT_SETTINGS };
     copy.idle_timeout_secs = 999;

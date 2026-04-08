@@ -156,6 +156,16 @@ pub struct AppSettings {
     /// Maximum displayed character count for Matrix posts.
     #[serde(default = "default_matrix_truncation_chars")]
     pub matrix_truncation_chars: usize,
+
+    // --- Auto-refresh ---
+    /// Hours between automatic post refreshes. 0 means disabled (default: 0).
+    /// Valid values: 0 (disabled), 2, 4, 6, … 24.
+    #[serde(default = "default_auto_refresh_hours")]
+    pub auto_refresh_hours: u64,
+
+    /// Whether to fetch latest posts on screensaver startup (default: false).
+    #[serde(default = "default_fetch_on_startup")]
+    pub fetch_on_startup: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +235,12 @@ fn default_matrix_time_window_hours() -> u64 {
 fn default_matrix_truncation_chars() -> usize {
     280
 }
+fn default_auto_refresh_hours() -> u64 {
+    0
+}
+fn default_fetch_on_startup() -> bool {
+    false
+}
 
 const LEGACY_FLIPFLAP_TICK_MS: u64 = 30;
 const LEGACY_MATRIX_FONT_SIZE: u32 = 16;
@@ -262,6 +278,8 @@ impl Default for AppSettings {
             matrix_search_query: String::new(),
             matrix_time_window_hours: default_matrix_time_window_hours(),
             matrix_truncation_chars: default_matrix_truncation_chars(),
+            auto_refresh_hours: default_auto_refresh_hours(),
+            fetch_on_startup: default_fetch_on_startup(),
         }
     }
 }
@@ -390,6 +408,13 @@ impl AppSettings {
         if self.matrix_truncation_chars == 0 {
             return Err("matrix_truncation_chars must be > 0".into());
         }
+        if !(self.auto_refresh_hours == 0
+            || (self.auto_refresh_hours >= 2
+                && self.auto_refresh_hours <= 24
+                && self.auto_refresh_hours % 2 == 0))
+        {
+            return Err("auto_refresh_hours must be 0 (disabled) or 2, 4, 6, … 24".into());
+        }
         Ok(())
     }
 }
@@ -460,6 +485,33 @@ mod tests {
         assert_eq!(settings.matrix_search_query, "");
         assert_eq!(settings.matrix_time_window_hours, 24);
         assert_eq!(settings.matrix_truncation_chars, 280);
+    }
+
+    #[test]
+    fn test_default_auto_refresh_and_startup_fetch() {
+        let settings = AppSettings::default();
+        assert_eq!(settings.auto_refresh_hours, 0);
+        assert!(!settings.fetch_on_startup);
+    }
+
+    #[test]
+    fn test_validate_rejects_invalid_auto_refresh_hours() {
+        let mut s = AppSettings::default();
+        s.auto_refresh_hours = 1;
+        assert!(s.validate().is_err());
+        s.auto_refresh_hours = 3;
+        assert!(s.validate().is_err());
+        s.auto_refresh_hours = 26;
+        assert!(s.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_accepts_valid_auto_refresh_hours() {
+        let mut s = AppSettings::default();
+        for hours in [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24] {
+            s.auto_refresh_hours = hours;
+            assert!(s.validate().is_ok(), "expected {hours} to be valid");
+        }
     }
 
     #[test]

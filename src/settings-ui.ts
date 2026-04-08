@@ -286,6 +286,32 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
           </button>
           <span id="refresh-status" class="field-hint"></span>
 
+          <label class="field">
+            <span class="field-label">Auto-refresh interval (hours)</span>
+            <select name="auto_refresh_hours">
+              <option value="0" ${s.auto_refresh_hours === 0 ? "selected" : ""}>Disabled</option>
+              <option value="2" ${s.auto_refresh_hours === 2 ? "selected" : ""}>Every 2 hours</option>
+              <option value="4" ${s.auto_refresh_hours === 4 ? "selected" : ""}>Every 4 hours</option>
+              <option value="6" ${s.auto_refresh_hours === 6 ? "selected" : ""}>Every 6 hours</option>
+              <option value="8" ${s.auto_refresh_hours === 8 ? "selected" : ""}>Every 8 hours</option>
+              <option value="10" ${s.auto_refresh_hours === 10 ? "selected" : ""}>Every 10 hours</option>
+              <option value="12" ${s.auto_refresh_hours === 12 ? "selected" : ""}>Every 12 hours</option>
+              <option value="14" ${s.auto_refresh_hours === 14 ? "selected" : ""}>Every 14 hours</option>
+              <option value="16" ${s.auto_refresh_hours === 16 ? "selected" : ""}>Every 16 hours</option>
+              <option value="18" ${s.auto_refresh_hours === 18 ? "selected" : ""}>Every 18 hours</option>
+              <option value="20" ${s.auto_refresh_hours === 20 ? "selected" : ""}>Every 20 hours</option>
+              <option value="22" ${s.auto_refresh_hours === 22 ? "selected" : ""}>Every 22 hours</option>
+              <option value="24" ${s.auto_refresh_hours === 24 ? "selected" : ""}>Every 24 hours</option>
+            </select>
+            <span class="field-hint">How often to automatically fetch new posts. Default: Disabled</span>
+          </label>
+
+          <label class="field field-checkbox">
+            <input type="checkbox" name="fetch_on_startup"
+              ${s.fetch_on_startup ? "checked" : ""} />
+            <span class="field-label">Fetch latest posts at startup</span>
+          </label>
+
           <div id="cache-overview" class="cache-overview" aria-live="polite">
             <p id="cache-overview-summary" class="field-hint">Total cached posts: loading…</p>
 
@@ -608,6 +634,8 @@ function readFormValues(form: HTMLFormElement, fallback: AppSettings): AppSettin
     matrix_search_query: str("matrix_search_query", fallback.matrix_search_query),
     matrix_time_window_hours: num("matrix_time_window_hours", fallback.matrix_time_window_hours),
     matrix_truncation_chars: num("matrix_truncation_chars", fallback.matrix_truncation_chars),
+    auto_refresh_hours: num("auto_refresh_hours", fallback.auto_refresh_hours),
+    fetch_on_startup: bool("fetch_on_startup", fallback.fetch_on_startup),
   };
 }
 
@@ -637,6 +665,7 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     matrix_search_query: s.matrix_search_query,
     matrix_time_window_hours: s.matrix_time_window_hours,
     matrix_truncation_chars: s.matrix_truncation_chars,
+    auto_refresh_hours: s.auto_refresh_hours,
   };
 
   for (const [name, value] of Object.entries(fields)) {
@@ -664,6 +693,11 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
   );
   if (backgroundAnimationCheckbox) {
     backgroundAnimationCheckbox.checked = s.flipflap_background_animation_enabled;
+  }
+
+  const fetchOnStartupCheckbox = form.querySelector<HTMLInputElement>('[name="fetch_on_startup"]');
+  if (fetchOnStartupCheckbox) {
+    fetchOnStartupCheckbox.checked = s.fetch_on_startup;
   }
 
   // Update the volume output label.

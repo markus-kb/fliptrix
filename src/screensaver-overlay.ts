@@ -68,11 +68,21 @@ export function initScreensaverOverlay(root: HTMLElement): void {
   const canvas = root.querySelector<HTMLCanvasElement>("#screensaver-canvas");
   if (canvas) {
     let deadZonePx = DEFAULT_SETTINGS.mouse_dead_zone_px;
+    let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
     void (async () => {
       const settings = await loadSettings();
       deadZonePx = settings.mouse_dead_zone_px;
       await startRenderer(canvas, settings);
+
+      if (settings.fetch_on_startup) {
+        void refreshPosts();
+      }
+
+      if (settings.auto_refresh_hours > 0) {
+        const intervalMs = settings.auto_refresh_hours * 60 * 60 * 1000;
+        autoRefreshTimer = setInterval(() => void refreshPosts(), intervalMs);
+      }
     })();
 
     const mouseTracker = new MouseTracker();
@@ -82,6 +92,10 @@ export function initScreensaverOverlay(root: HTMLElement): void {
       if (deactivating) return;
       deactivating = true;
       stopActiveRenderer();
+      if (autoRefreshTimer !== null) {
+        clearInterval(autoRefreshTimer);
+        autoRefreshTimer = null;
+      }
 
       try {
         await invoke("deactivate_screensaver");
@@ -106,6 +120,19 @@ export function initScreensaverOverlay(root: HTMLElement): void {
         void deactivate();
       }
     });
+  }
+}
+
+async function refreshPosts(): Promise<void> {
+  try {
+    await invoke("fetch_posts", { mode: "flipflap" });
+  } catch (err) {
+    logError("Auto-refresh FlipFlap posts failed", err);
+  }
+  try {
+    await invoke("fetch_posts", { mode: "matrix" });
+  } catch (err) {
+    logError("Auto-refresh Matrix posts failed", err);
   }
 }
 

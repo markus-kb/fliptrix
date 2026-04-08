@@ -54,6 +54,10 @@ export interface AppSettings {
   matrix_search_query: string;
   matrix_time_window_hours: number;
   matrix_truncation_chars: number;
+
+  // Auto-refresh
+  auto_refresh_hours: number;
+  fetch_on_startup: boolean;
 }
 
 /** Defaults that match `AppSettings::default()` in Rust. */
@@ -85,6 +89,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   matrix_search_query: "",
   matrix_time_window_hours: 24,
   matrix_truncation_chars: 280,
+  auto_refresh_hours: 0,
+  fetch_on_startup: false,
 };
 
 export function cloneDefaultSettings(): AppSettings {
