@@ -33,6 +33,7 @@ const STORE_KEY_APP_SETTINGS: &str = "app_settings";
 
 const STORE_FILE_ENV: &str = "FLIPTRIX_STORE_FILE";
 const APP_DATA_DIR_ENV: &str = "FLIPTRIX_APP_DATA_DIR";
+const BEARER_TOKEN_ENV: &str = "FLIPTRIX_BEARER_TOKEN";
 
 /// Tauri app identifier — must match `tauri.conf.json` → `identifier`.
 const APP_ID: &str = "com.fliptrix.desktop";
@@ -664,32 +665,81 @@ fn start_idle_poller(app: &AppHandle, poll_interval: Duration) {
 // Store initialization helper
 // ---------------------------------------------------------------------------
 
-/// Restores the API client from a previously stored bearer token.
+/// Resolves the bearer token at startup using a clear priority order:
+///
+/// 1. **Stored (JSON) token** — if `store.json` contains a valid
+///    `bearer_token` key, it is used. This is the value the user explicitly
+///    saved via the settings UI.
+/// 2. **Environment variable** — `FLIPTRIX_BEARER_TOKEN` is checked as a
+///    fallback when no stored token exists. The env var is **never** written
+///    to the store, so it can be used for scenarios where the token should
+///    not live on disk (e.g. CI, launcher scripts).
+/// 3. **Neither** — returns `None` and the API client stays unavailable
+///    until the user configures a token.
+///
+/// Returns `(token_string, source)` where `source` indicates the origin.
+fn resolve_bearer_token(
+    stored_token: Option<&str>,
+    env_token: Option<&str>,
+) -> Option<(String, &'static str)> {
+    if let Some(stored) = stored_token {
+        if !stored.trim().is_empty() {
+            return Some((stored.to_string(), "store"));
+        }
+    }
+
+    if let Some(env) = env_token {
+        if !env.trim().is_empty() {
+            return Some((env.to_string(), "env"));
+        }
+    }
+
+    None
+}
+
+/// Restores the API client from a previously stored bearer token, falling back
+/// to the `FLIPTRIX_BEARER_TOKEN` environment variable when no stored token
+/// exists.
 ///
 /// Called during app setup so the client is available immediately without
 /// the user having to re-enter their key after every restart.
-fn restore_api_client_from_store(app: &AppHandle) -> Option<XApiClient> {
+fn restore_api_client(app: &AppHandle) -> Option<XApiClient> {
     let store_file = store_file_name();
     let store = match app.store(store_file.as_str()) {
         Ok(s) => s,
         Err(e) => {
             log::warn!("could not open store during startup: {e}");
-            return None;
+            // Fall through to env var check even when store is unavailable.
+            let env_token = std::env::var(BEARER_TOKEN_ENV).ok();
+            let resolved = resolve_bearer_token(None, env_token.as_deref())?;
+            return XApiClient::new(resolved.0).ok();
         }
     };
 
-    let token: serde_json::Value = store.get(STORE_KEY_BEARER_TOKEN)?;
-    let token_str = token.as_str()?;
+    let stored_token: Option<String> = store
+        .get(STORE_KEY_BEARER_TOKEN)
+        .and_then(|v| v.as_str().map(|s| s.to_string()));
 
-    match XApiClient::new(token_str.to_string()) {
-        Ok(client) => {
-            log::info!("API client restored from stored bearer token");
-            Some(client)
-        }
-        Err(e) => {
-            log::warn!("stored bearer token is invalid, clearing: {e}");
+    if let Some(ref tok) = stored_token {
+        if tok.trim().is_empty() {
             let _ = store.delete(STORE_KEY_BEARER_TOKEN);
             let _ = store.save();
+        }
+    }
+
+    let env_token = std::env::var(BEARER_TOKEN_ENV).ok();
+    let resolved = resolve_bearer_token(stored_token.as_deref(), env_token.as_deref())?;
+
+    match resolved.1 {
+        "store" => log::info!("API client restored from stored bearer token"),
+        "env" => log::info!("API client restored from FLIPTRIX_BEARER_TOKEN env var"),
+        _ => {}
+    }
+
+    match XApiClient::new(resolved.0) {
+        Ok(client) => Some(client),
+        Err(e) => {
+            log::warn!("retrieved bearer token is invalid: {e}");
             None
         }
     }
@@ -760,8 +810,9 @@ pub fn run() {
             // Resolve the app data directory for cache file I/O.
             let app_data_dir = resolve_app_data_dir(app.handle())?;
 
-            // Restore the API client from a previously stored bearer token.
-            let api_client = restore_api_client_from_store(app.handle());
+            // Restore the API client from a stored bearer token, falling back to
+            // the FLIPTRIX_BEARER_TOKEN environment variable.
+            let api_client = restore_api_client(app.handle());
 
             // Load persisted settings, falling back to defaults.
             let stored_settings: AppSettings = {
@@ -871,5 +922,83 @@ mod config_tests {
             min_height >= 480,
             "main window minHeight ({min_height}) must be >= 480"
         );
+    }
+}
+
+#[cfg(test)]
+mod bearer_token_resolution_tests {
+    use super::*;
+
+    #[test]
+    fn test_stored_token_takes_priority_over_env() {
+        let result = resolve_bearer_token(Some("stored-token"), Some("env-token"));
+        assert_eq!(result, Some(("stored-token".to_string(), "store")));
+    }
+
+    #[test]
+    fn test_env_token_used_when_no_stored_token() {
+        let result = resolve_bearer_token(None, Some("env-token"));
+        assert_eq!(result, Some(("env-token".to_string(), "env")));
+    }
+
+    #[test]
+    fn test_none_when_no_stored_and_no_env() {
+        let result = resolve_bearer_token(None, None);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_stored_token_takes_priority_even_when_env_is_set() {
+        let result = resolve_bearer_token(Some("store-wins"), Some("env-loses"));
+        let (token, source) = result.expect("should return a token");
+        assert_eq!(token, "store-wins");
+        assert_eq!(source, "store");
+    }
+
+    #[test]
+    fn test_empty_stored_token_falls_back_to_env() {
+        let result = resolve_bearer_token(Some(""), Some("env-token"));
+        assert_eq!(result, Some(("env-token".to_string(), "env")));
+    }
+
+    #[test]
+    fn test_whitespace_stored_token_falls_back_to_env() {
+        let result = resolve_bearer_token(Some("   "), Some("env-token"));
+        assert_eq!(result, Some(("env-token".to_string(), "env")));
+    }
+
+    #[test]
+    fn test_empty_env_token_returns_none_when_no_store() {
+        let result = resolve_bearer_token(None, Some(""));
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_whitespace_env_token_returns_none_when_no_store() {
+        let result = resolve_bearer_token(None, Some("   "));
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_both_empty_returns_none() {
+        let result = resolve_bearer_token(Some(""), Some(""));
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_stored_token_ignored_when_empty_but_env_present() {
+        let result = resolve_bearer_token(Some(""), Some("fallback"));
+        assert_eq!(result, Some(("fallback".to_string(), "env")));
+    }
+
+    #[test]
+    fn test_valid_stored_token_ignores_empty_env() {
+        let result = resolve_bearer_token(Some("stored-val"), Some(""));
+        assert_eq!(result, Some(("stored-val".to_string(), "store")));
+    }
+
+    #[test]
+    fn test_env_var_constant_value() {
+        assert_eq!(BEARER_TOKEN_ENV, "FLIPTRIX_BEARER_TOKEN");
     }
 }

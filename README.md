@@ -163,6 +163,36 @@ corepack pnpm e2e:windows
 corepack pnpm e2e:linux
 ```
 
+## Security & Token Configuration
+
+fliptrix stores the X API bearer token in a local JSON file (`store.json`) managed by `tauri-plugin-store`. This file is located in the app data directory:
+
+- Windows: `%APPDATA%\com.fliptrix.desktop\`
+- Linux: `$XDG_DATA_HOME/com.fliptrix.desktop/` (or `~/.local/share/com.fliptrix.desktop/`)
+
+**The token is stored in plaintext.** Anyone with access to this file can read it. `store.json` is included in `.gitignore` and should never be committed.
+
+### Environment variable fallback
+
+As an alternative to storing the token on disk, you can set the `FLIPTRIX_BEARER_TOKEN` environment variable:
+
+```bash
+FLIPTRIX_BEARER_TOKEN=your-token-here fliptrix
+```
+
+Priority order:
+
+1. **Stored token** (set via the settings UI) — always takes precedence
+2. **`FLIPTRIX_BEARER_TOKEN` env var** — used only when no stored token exists
+
+The env var is never written to the store, so it is suitable for launcher scripts, CI, or scenarios where the token should not persist on disk.
+
+### Recommendations
+
+- Do not commit `store.json` or `.env` files containing real tokens
+- For shared machines, prefer the env var approach over the settings UI
+- Revoke and regenerate your X API token if you suspect it has been exposed
+
 ## Notes
 
 - Primary runtime target: Windows 11

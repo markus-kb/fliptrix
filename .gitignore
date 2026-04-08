@@ -30,3 +30,7 @@ src-tauri/target
 
 .claude/
 tmp/**
+
+# Sensitive local files
+*.store.json
+.env
