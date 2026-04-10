@@ -1,40 +1,24 @@
 # fliptrix
 
-`fliptrix` is a desktop fake screensaver built with Tauri, vanilla TypeScript, and Rust.
-It supports `Matrix`, `FlipFlap`, and `Both` modes, activates after idle time, and can render X/Twitter-backed content with separate data sources per mode.
+A desktop screensaver that renders live X/Twitter posts as a **split-flap departure board** or **Matrix digital rain**. Built with Tauri, Rust, and vanilla TypeScript.
+
+![fliptrix](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue) ![fliptrix](https://img.shields.io/badge/status-phase%207-green)
+
+## Modes
+
+- **FlipFlap** — realistic airport split-flap display with per-cell character rotation, mechanical click sounds, and optional background image with pulse animation
+- **Matrix** — classic green digital rain with X posts embedded as data packets
+- **Both** — auto-switches between modes at a configurable interval
 
 ## Features
 
-- fullscreen screensaver window on each monitor
-- idle activation and input-based deactivation
-- `Matrix`, `FlipFlap`, and auto-switching `Both` mode
-- settings UI for renderer behavior, idle timeout, autostart, and X data
-- separate X account/search configuration for Matrix and FlipFlap
-- per-mode on-disk post caches
-
-## Requirements
-
-### General
-
-- Node with `corepack` enabled
-- Rust installed via `rustup`
-
-### Linux build prerequisites
-
-Tauri on Linux needs system packages that are not vendored in this repo.
-
-Typical Ubuntu 24.04 packages:
-
-```bash
-sudo apt install pkg-config patchelf libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev
-```
-
-### E2E prerequisites
-
-- Install `tauri-driver` (`cargo install tauri-driver`)
-- Build the desktop app binary before running E2E tests
-- Linux: install `WebKitWebDriver` (Ubuntu package: `webkit2gtk-driver`)
-- Windows: install a matching WebDriver for your installed Edge version (for `tauri-driver`)
+- Fullscreen borderless window on each monitor
+- Idle activation with configurable timeout (default 5 minutes)
+- Immediate exit on keyboard or mouse movement (with dead-zone)
+- X API v2 integration with per-mode account/search configuration
+- Auto-refresh and fetch-on-startup
+- User-level autostart (no admin rights)
+- User-space only — no `.scr` registration or system hooks
 
 ## Install
 
@@ -42,167 +26,56 @@ sudo apt install pkg-config patchelf libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2
 corepack pnpm install
 ```
 
-## Run In Development
-
-Start the desktop app with hot reload:
+Linux requires system packages:
 
 ```bash
-corepack pnpm tauri dev
+sudo apt install pkg-config patchelf libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev
 ```
 
-If you only want the frontend dev server:
+## Run
 
 ```bash
-corepack pnpm dev
+corepack pnpm tauri dev        # desktop app with hot reload
+corepack pnpm dev              # frontend only
 ```
 
 ## Build
 
-Build frontend assets only:
-
 ```bash
-corepack pnpm build
+corepack pnpm build            # frontend assets
+corepack pnpm tauri build      # desktop application bundle
 ```
 
-Build the desktop application bundle:
+## Commands
 
 ```bash
-corepack pnpm tauri build
+corepack pnpm test             # TS unit tests
+corepack pnpm lint             # Biome lint
+corepack pnpm format:check     # Biome format check
+cargo test --manifest-path src-tauri/Cargo.toml   # Rust unit tests
+cargo fmt --all -- --check      # Rust format check
+corepack pnpm e2e:generic      # cross-platform E2E
+corepack pnpm e2e:windows      # Windows E2E
+corepack pnpm e2e:linux         # Linux E2E
 ```
 
-Build outputs are produced under `src-tauri/target/`.
+## X API Setup
 
-## Use The App
+1. Launch fliptrix and open settings
+2. Paste your X API bearer token and click **Save token**
+3. Configure accounts or search queries per mode
+4. Click **Refresh posts now** to fetch content
 
-1. Launch `fliptrix`.
-2. Open the main settings window.
-3. Set your idle timeout, mode, and renderer settings.
-4. If you want X-backed content, paste an X API bearer token and save it.
-5. Configure Matrix and FlipFlap accounts or search queries separately.
-6. Click `Refresh posts now` to populate the caches.
-7. Optionally enable autostart.
-8. Leave the machine idle until the timeout is reached.
+Alternatively, set the `FLIPTRIX_BEARER_TOKEN` environment variable. The stored token takes priority; the env var is used as fallback and is never written to disk.
 
-### X Data Notes
+## Security
 
-- Matrix and FlipFlap use separate content settings.
-- Their caches are stored separately.
-- If no cached posts are available, the app falls back to demo content.
-
-### Logging
-
-- Logs are persisted to the app log directory via `tauri-plugin-log`.
-- Open the folder from Settings -> Diagnostics -> `Open logs folder`.
-- `Enable debug logs` increases verbosity for troubleshooting (off by default).
-- Sensitive values (like bearer tokens) are not logged.
-- Typical log locations:
-  - Windows: `%LOCALAPPDATA%\com.fliptrix.desktop\logs`
-  - Linux: `$XDG_DATA_HOME/com.fliptrix.desktop/logs` (or `~/.local/share/com.fliptrix.desktop/logs`)
-
-## Quality Checks
-
-Frontend:
-
-```bash
-corepack pnpm test
-corepack pnpm lint
-corepack pnpm format:check
-```
-
-Rust:
-
-```bash
-. "$HOME/.cargo/env" && cargo fmt --all -- --check
-. "$HOME/.cargo/env" && cargo test
-```
-
-End-to-end:
-
-```bash
-# Generic full E2E flows (runs on Windows and Linux)
-corepack pnpm e2e:generic
-
-# Platform-focused suites
-corepack pnpm e2e:windows
-corepack pnpm e2e:linux
-```
-
-Platform verification commands:
-
-```bash
-corepack pnpm verify:windows
-corepack pnpm verify:linux
-```
-
-E2E suite types:
-
-- Generic full E2E: shared desktop behavior on both platforms
-- Windows-only focused tests: Windows-specific autostart/path behavior
-- Linux-only focused tests: Linux-specific autostart/path behavior
-
-Notes:
-
-- Multi-monitor behavior is intentionally out of scope for current E2E tests
-- E2E runs are deterministic and do not call live X APIs
-- Linux E2E requires a real graphical session. On headless machines, Tauri/WebKitGTK may fail with `Failed to initialize GTK` or WebDriver session timeouts.
-- If Linux E2E is blocked by a headless environment, the next steps are:
-- install the native drivers: `cargo install tauri-driver` and `sudo apt install webkit2gtk-driver`
-- run the tests inside a desktop session with `DISPLAY` or Wayland available, or provide a virtual display such as `xvfb`
-- verify the app launches directly before retrying E2E: `src-tauri/target/debug/fliptrix`
-
-## Useful Commands
-
-```bash
-corepack pnpm tauri dev
-corepack pnpm tauri build
-corepack pnpm test
-corepack pnpm lint
-corepack pnpm format
-corepack pnpm e2e:generic
-corepack pnpm e2e:windows
-corepack pnpm e2e:linux
-```
-
-## Security & Token Configuration
-
-fliptrix stores the X API bearer token in a local JSON file (`store.json`) managed by `tauri-plugin-store`. This file is located in the app data directory:
-
-- Windows: `%APPDATA%\com.fliptrix.desktop\`
-- Linux: `$XDG_DATA_HOME/com.fliptrix.desktop/` (or `~/.local/share/com.fliptrix.desktop/`)
-
-**The token is stored in plaintext.** Anyone with access to this file can read it. `store.json` is included in `.gitignore` and should never be committed.
-
-### Environment variable fallback
-
-As an alternative to storing the token on disk, you can set the `FLIPTRIX_BEARER_TOKEN` environment variable:
-
-```bash
-FLIPTRIX_BEARER_TOKEN=your-token-here fliptrix
-```
-
-Priority order:
-
-1. **Stored token** (set via the settings UI) — always takes precedence
-2. **`FLIPTRIX_BEARER_TOKEN` env var** — used only when no stored token exists
-
-The env var is never written to the store, so it is suitable for launcher scripts, CI, or scenarios where the token should not persist on disk.
-
-### Recommendations
-
-- Do not commit `store.json` or `.env` files containing real tokens
-- For shared machines, prefer the env var approach over the settings UI
-- Revoke and regenerate your X API token if you suspect it has been exposed
-
-## Notes
-
-- Primary runtime target: Windows 11
-- Linux is supported for development and packaging
-- user-space only, no admin rights required
-- no native `.scr` registration
+The bearer token is stored in plaintext in `store.json` (app data directory). See [docs/REFERENCE.md](docs/REFERENCE.md#security) for details and recommendations.
 
 ## Documentation
 
-- Product requirements: `docs/PRD`
-- Technical spec: `docs/TECH-SPEC.md`
-- Implementation plan: `docs/IMPLEMENTATION-PLAN.md`
-- E2E testing guide: `docs/E2E-TESTING.md`
+- [Reference](docs/REFERENCE.md) — architecture, settings, X data flow, security, E2E testing, storage paths
+
+## License
+
+Private — all rights reserved.

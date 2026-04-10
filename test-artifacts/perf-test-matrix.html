@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Matrix Perf Test</title>
+  <style>
+    body { margin: 0; background: #000; color: #0f0; font: 14px monospace; }
+    #canvas { display: block; }
+    #stats {
+      position: fixed; top: 10px; left: 10px;
+      background: rgba(0,0,0,0.85);
+      padding: 12px; border: 1px solid #0f0;
+      white-space: pre; line-height: 1.6;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="stats">Initializing...</div>
+
+  <script type="module">
+    import { MatrixRenderer, DEFAULT_MATRIX_CONFIG } from '/src/matrix-renderer.ts';
+
+    const canvas = document.getElementById('canvas');
+    const stats = document.getElementById('stats');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const renderer = new MatrixRenderer(canvas, {
+      ...DEFAULT_MATRIX_CONFIG,
+    });
+    renderer.start();
+
+    // Frame timing measurement
+    const frameTimes = [];
+    let lastFrame = performance.now();
+    let sampleCount = 0;
+    const WARMUP = 30;   // skip first N frames
+    const MEASURE = 120; // measure next N frames
+
+    function measure(now) {
+      const dt = now - lastFrame;
+      lastFrame = now;
+      sampleCount++;
+
+      if (sampleCount > WARMUP && sampleCount <= WARMUP + MEASURE) {
+        frameTimes.push(dt);
+      }
+
+      if (sampleCount === WARMUP + MEASURE) {
+        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+        const min = Math.min(...frameTimes);
+        const max = Math.max(...frameTimes);
+        const fps = 1000 / avg;
+        // p95
+        const sorted = [...frameTimes].sort((a, b) => a - b);
+        const p95 = sorted[Math.floor(sorted.length * 0.95)];
+
+        stats.textContent = [
+          `=== MATRIX PERF RESULTS (${MEASURE} frames) ===`,
+          ``,
+          `Avg frame time : ${avg.toFixed(1)} ms`,
+          `Min frame time : ${min.toFixed(1)} ms`,
+          `Max frame time : ${max.toFixed(1)} ms`,
+          `p95 frame time : ${p95.toFixed(1)} ms`,
+          ``,
+          `Avg FPS        : ${fps.toFixed(1)}`,
+          ``,
+          `Config:`,
+          `  tickIntervalMs : ${DEFAULT_MATRIX_CONFIG.tickIntervalMs}`,
+          `  glowIntensity  : ${DEFAULT_MATRIX_CONFIG.glowIntensity}`,
+          `  fontSize       : ${DEFAULT_MATRIX_CONFIG.fontSize}`,
+          `  bgLayers       : ${DEFAULT_MATRIX_CONFIG.backgroundLayerCount}`,
+          ``,
+          `Status: DONE 窶・safe to read`,
+        ].join('\n');
+
+        // Also log to console for Playwright
+        console.log('PERF_RESULT', JSON.stringify({ avg, min, max, p95, fps }));
+      } else if (sampleCount < WARMUP + MEASURE) {
+        const pct = Math.max(0, sampleCount - WARMUP);
+        stats.textContent = `Measuring... ${pct}/${MEASURE} frames\n(warmup: ${Math.min(sampleCount, WARMUP)}/${WARMUP})`;
+      }
+
+      requestAnimationFrame(measure);
+    }
+
+    requestAnimationFrame(measure);
+  </script>
+</body>
+</html>

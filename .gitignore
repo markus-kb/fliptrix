@@ -29,7 +29,12 @@ src-tauri/target
 *.sw?
 
 .claude/
+AGENTS.md
 tmp/**
+
+# Generated / tool artifacts
+.playwright-mcp/
+package-lock.json
 
 # Sensitive local files
 *.store.json
