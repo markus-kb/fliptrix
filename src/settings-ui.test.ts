@@ -330,7 +330,13 @@ describe("initSettingsUi", () => {
     expect(pulseOutput.textContent).toBe("1.0");
   });
 
-  it("reset restores volume and pulse outputs independently", async () => {
+  it("displays the build hash in the settings header", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_build_info") {
+        return "abc1234";
+      }
+      return undefined;
+    });
     getSettingsMock.mockResolvedValue({
       ...cloneDefaultSettings(),
       flipflap_volume: 0.35,
@@ -586,5 +592,25 @@ describe("initSettingsUi", () => {
     await Promise.resolve();
 
     expect(openLogsDirectoryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("displays the build hash in the settings header", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_build_info") {
+        return "abc1234";
+      }
+      return undefined;
+    });
+    getSettingsMock.mockResolvedValue(cloneDefaultSettings());
+    getAutostartEnabledMock.mockResolvedValue(false);
+
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const hashEl = root.querySelector<HTMLElement>("#build-hash");
+    expect(hashEl).not.toBeNull();
+    expect(hashEl?.textContent).toBe("abc1234");
   });
 });

@@ -1002,3 +1002,26 @@ mod bearer_token_resolution_tests {
         assert_eq!(BEARER_TOKEN_ENV, "FLIPTRIX_BEARER_TOKEN");
     }
 }
+
+#[cfg(test)]
+mod build_info_tests {
+    use super::*;
+
+    #[test]
+    fn test_get_build_info_returns_non_empty_hash() {
+        let hash = get_build_info();
+        assert!(!hash.is_empty(), "build hash must not be empty");
+    }
+
+    #[test]
+    fn test_get_build_info_matches_expected_format() {
+        let hash = get_build_info();
+        // Either a 7+ hex git short hash, or "dev" for non-git builds.
+        let is_valid_hash = hash.len() >= 7 && hash.chars().all(|c| c.is_ascii_hexdigit());
+        let is_dev = hash == "dev";
+        assert!(
+            is_valid_hash || is_dev,
+            "build hash must be a hex short hash or 'dev', got: {hash}"
+        );
+    }
+}
