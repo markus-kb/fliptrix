@@ -49,6 +49,7 @@ Separation of concerns:
 | Rust | `settings.rs` | AppSettings with validation and serde |
 | Rust | `windowing.rs` | Per-monitor fullscreen window creation/destruction |
 | Rust | `lib.rs` | Tauri commands, state management, bearer token resolution, idle poller |
+| Rust | `build.rs` | Injects `FLIPTRIX_GIT_HASH` at compile time for build verification |
 | TS | `flipflap-state.ts` | Per-cell character drums, board state |
 | TS | `flipflap-renderer.ts` | Canvas rendering for FlipFlap mode |
 | TS | `flipflap-audio.ts` | Web Audio synthesized click sounds |
@@ -166,3 +167,26 @@ Determinism rules: no live API calls, no real autostart writes, per-suite isolat
 - **Package manager**: `pnpm` via `corepack`
 - **Lint/format**: Biome (frontend), `rustfmt` (Rust)
 - **Tests**: Vitest (TS unit), `cargo test` (Rust unit), Node.js test runner (e2e)
+
+## Build Verification
+
+Every binary carries a short git commit hash embedded at compile time. This lets users confirm which source commit their download was built from.
+
+**How it works:**
+
+1. `build.rs` runs `git rev-parse --short HEAD` during compilation and injects the result as `FLIPTRIX_GIT_HASH` via `cargo:rustc-env`.
+2. The Rust constant `GIT_HASH` reads this value (falls back to `"dev"` when not in a git checkout).
+3. The Tauri command `get_build_info()` returns this hash to the frontend.
+4. The settings UI displays it next to the app title as a subtle tag.
+
+**Verifying a binary:**
+
+1. Open fliptrix Settings and note the hash shown in the header (e.g., `6e9c998`).
+2. Compare against `git log --oneline -1` on the source repo.
+3. If they match, the binary was built from that exact commit.
+4. If the hash shows `"dev"`, the binary was built from a non-git source (e.g., a tarball).
+
+**Caveats:**
+
+- The hash reflects the commit at `cargo build` time, not `tauri build` time. Since `tauri build` triggers `cargo build`, the hash is always current.
+- Builds from downloaded `.tar.gz` archives (without `.git`) will show `"dev"`.

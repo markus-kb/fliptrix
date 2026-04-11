@@ -76,6 +76,10 @@ The bearer token is stored in plaintext in `store.json` (app data directory). Se
 
 - [Reference](docs/REFERENCE.md) — architecture, settings, X data flow, security, E2E testing, storage paths
 
+## Build Verification
+
+Each binary displays its source commit hash in Settings (next to the app title). Compare it against `git log --oneline -1` on the repo to confirm provenance. Builds without git show `"dev"`.
+
 ## License
 
 Private — all rights reserved.
