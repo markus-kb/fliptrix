@@ -177,7 +177,7 @@ Every binary carries a short git commit hash embedded at compile time. This lets
 1. `build.rs` runs `git rev-parse --short HEAD` during compilation and injects the result as `FLIPTRIX_GIT_HASH` via `cargo:rustc-env`.
 2. The Rust constant `GIT_HASH` reads this value (falls back to `"dev"` when not in a git checkout).
 3. The Tauri command `get_build_info()` returns this hash to the frontend.
-4. The settings UI displays it next to the app title as a subtle tag.
+4. The settings UI displays it in **Diagnostics → Build information**.
 
 **Verifying a binary:**
 

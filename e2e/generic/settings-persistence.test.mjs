@@ -35,10 +35,14 @@ test("persists saved settings across app sessions", async () => {
   }
 });
 
-test("displays build hash in settings header", async () => {
+test("displays build hash in diagnostics only", async () => {
   const browser = await harness.openSession();
   try {
-    const hashEl = await browser.$("#build-hash");
+    const legacyHashEl = await browser.$("#build-hash");
+    const hasLegacy = await legacyHashEl.isExisting();
+    assert.equal(hasLegacy, false, "legacy header hash must not be shown");
+
+    const hashEl = await browser.$("#build-info-hash");
     await hashEl.waitForDisplayed({ timeout: 15_000 });
     const text = await hashEl.getText();
     assert.ok(

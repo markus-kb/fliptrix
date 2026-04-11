@@ -6,6 +6,8 @@ import type { AppSettings } from "./settings";
 
 const {
   invokeMock,
+  getVersionMock,
+  clipboardWriteTextMock,
   getSettingsMock,
   getAutostartEnabledMock,
   openLogsDirectoryMock,
@@ -18,6 +20,8 @@ const {
   setFrontendDebugLoggingMock,
 } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
+  getVersionMock: vi.fn<() => Promise<string>>(),
+  clipboardWriteTextMock: vi.fn<(text: string) => Promise<void>>(),
   getSettingsMock: vi.fn<() => Promise<AppSettings>>(),
   getAutostartEnabledMock: vi.fn<() => Promise<boolean>>(),
   openLogsDirectoryMock: vi.fn<() => Promise<string>>(),
@@ -32,6 +36,10 @@ const {
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: invokeMock,
+}));
+
+vi.mock("@tauri-apps/api/app", () => ({
+  getVersion: getVersionMock,
 }));
 
 vi.mock("./settings", async () => {
@@ -79,6 +87,8 @@ describe("initSettingsUi", () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="root"></div>';
     invokeMock.mockReset();
+    getVersionMock.mockReset();
+    clipboardWriteTextMock.mockReset();
     getSettingsMock.mockReset();
     getAutostartEnabledMock.mockReset();
     saveSettingsMock.mockReset();
@@ -94,7 +104,19 @@ describe("initSettingsUi", () => {
     getAutostartEnabledMock.mockResolvedValue(false);
     openLogsDirectoryMock.mockResolvedValue("/tmp/fliptrix/logs");
     saveSettingsMock.mockResolvedValue();
+    getVersionMock.mockResolvedValue("0.1.0");
+    clipboardWriteTextMock.mockResolvedValue();
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: clipboardWriteTextMock,
+      },
+    });
     invokeMock.mockImplementation(async (command, args) => {
+      if (command === "get_build_info") {
+        return "dev";
+      }
+
       if (command === "get_api_key_status") {
         return false;
       }
@@ -594,13 +616,14 @@ describe("initSettingsUi", () => {
     expect(openLogsDirectoryMock).toHaveBeenCalledTimes(1);
   });
 
-  it("displays the build hash in the settings header", async () => {
+  it("shows build info in diagnostics and not in the main header", async () => {
     invokeMock.mockImplementation(async (command) => {
       if (command === "get_build_info") {
         return "abc1234";
       }
       return undefined;
     });
+    getVersionMock.mockResolvedValue("1.2.3");
     getSettingsMock.mockResolvedValue(cloneDefaultSettings());
     getAutostartEnabledMock.mockResolvedValue(false);
 
@@ -608,9 +631,38 @@ describe("initSettingsUi", () => {
     if (!root) throw new Error("missing root");
 
     await initSettingsUi(root);
+    await flushUi();
 
-    const hashEl = root.querySelector<HTMLElement>("#build-hash");
-    expect(hashEl).not.toBeNull();
+    const headerHashEl = root.querySelector<HTMLElement>("#build-hash");
+    const versionEl = root.querySelector<HTMLElement>("#build-info-version");
+    const hashEl = root.querySelector<HTMLElement>("#build-info-hash");
+
+    expect(headerHashEl).toBeNull();
+    expect(versionEl?.textContent).toBe("1.2.3");
     expect(hashEl?.textContent).toBe("abc1234");
+  });
+
+  it("copies build info from diagnostics", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_build_info") {
+        return "abc1234";
+      }
+      return undefined;
+    });
+    getVersionMock.mockResolvedValue("1.2.3");
+
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+    await flushUi();
+
+    const copyButton = root.querySelector<HTMLButtonElement>("#copy-build-info-btn");
+    if (!copyButton) throw new Error("missing copy build info button");
+
+    copyButton.click();
+    await flushUi();
+
+    expect(clipboardWriteTextMock).toHaveBeenCalledWith("fliptrix version 1.2.3 (commit abc1234)");
   });
 });

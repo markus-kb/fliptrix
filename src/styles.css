@@ -57,12 +57,27 @@ h1 {
   letter-spacing: -0.04em;
 }
 
-#build-hash {
-  font-size: 0.35em;
-  font-weight: 400;
-  color: rgba(248, 242, 232, 0.35);
-  vertical-align: middle;
-  margin-left: 0.4em;
+.build-info-grid {
+  margin-top: 0.25rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+}
+
+.build-info-key {
+  font-size: 0.8rem;
+  color: rgba(248, 242, 232, 0.6);
+}
+
+.build-info-grid code {
+  font-size: 0.85rem;
+  color: rgba(255, 207, 150, 0.9);
+  background: rgba(9, 11, 15, 0.6);
+  border: 1px solid rgba(255, 181, 99, 0.25);
+  border-radius: 0.4rem;
+  padding: 0.15rem 0.4rem;
+  width: fit-content;
 }
 
 .lead {

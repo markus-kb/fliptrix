@@ -14,6 +14,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { getFlipFlapBackgroundAssets } from "./flipflap-backgrounds";
 import { logDebug, logError, logInfo, logWarn, setFrontendDebugLogging } from "./logger";
 import {
@@ -70,7 +71,7 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
     <section class="settings-shell">
       <header class="settings-header">
         <p class="eyebrow">Settings</p>
-        <h1>fliptrix <small id="build-hash"></small></h1>
+        <h1>fliptrix</h1>
         <p class="lead">Configure your screensaver.</p>
       </header>
 
@@ -428,6 +429,22 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
               Opens the app log directory in your system file explorer.
             </span>
           </div>
+
+          <div class="field field-actions">
+            <span class="field-label">Build information</span>
+            <div class="build-info-grid" aria-live="polite">
+              <span class="build-info-key">Version</span>
+              <code id="build-info-version">Loading…</code>
+              <span class="build-info-key">Commit</span>
+              <code id="build-info-hash">Loading…</code>
+            </div>
+            <div class="inline-actions">
+              <button type="button" id="copy-build-info-btn" class="btn btn-secondary">Copy build info</button>
+            </div>
+            <span class="field-hint">
+              Include this in bug reports to identify the exact binary build.
+            </span>
+          </div>
         </fieldset>
 
         <div class="settings-actions-wrap">
@@ -451,16 +468,7 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   const previewFeedback = root.querySelector<HTMLElement>("#settings-feedback");
   if (!form || !previewFeedback) return;
 
-  // Populate the build hash so users can verify which commit the binary was
-  // built from.
-  invoke<string>("get_build_info")
-    .then((hash) => {
-      const hashEl = root.querySelector<HTMLElement>("#build-hash");
-      if (hashEl) hashEl.textContent = hash;
-    })
-    .catch(() => {
-      // Build info is non-essential; silently ignore if unavailable.
-    });
+  void loadBuildInfo(root);
 
   const saveFeedback =
     root.querySelector<HTMLElement>("#settings-save-feedback") ?? previewFeedback;
@@ -512,6 +520,9 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   // Open logs folder.
   wireOpenLogsButton(root, previewFeedback);
 
+  // Build info copy action.
+  wireCopyBuildInfoButton(root, previewFeedback);
+
   // Manual mode test buttons.
   wirePreviewButtons(root, form, previewFeedback, saveFeedback, initialSettings);
 
@@ -553,6 +564,33 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
       );
     }
   });
+}
+
+async function loadBuildInfo(root: HTMLElement): Promise<void> {
+  const versionEl = root.querySelector<HTMLElement>("#build-info-version");
+  const hashEl = root.querySelector<HTMLElement>("#build-info-hash");
+  if (!versionEl || !hashEl) {
+    return;
+  }
+
+  const [versionResult, hashResult] = await Promise.allSettled([
+    getVersion(),
+    invoke<string>("get_build_info"),
+  ]);
+
+  versionEl.textContent =
+    versionResult.status === "fulfilled" && isNonEmptyString(versionResult.value)
+      ? versionResult.value
+      : "unavailable";
+
+  hashEl.textContent =
+    hashResult.status === "fulfilled" && isNonEmptyString(hashResult.value)
+      ? hashResult.value
+      : "unavailable";
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -892,6 +930,38 @@ function wireOpenLogsButton(root: HTMLElement, feedback: HTMLElement): void {
         feedback,
         "error",
         `Failed to open logs folder: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+function wireCopyBuildInfoButton(root: HTMLElement, feedback: HTMLElement): void {
+  const button = root.querySelector<HTMLButtonElement>("#copy-build-info-btn");
+  const versionEl = root.querySelector<HTMLElement>("#build-info-version");
+  const hashEl = root.querySelector<HTMLElement>("#build-info-hash");
+  if (!button || !versionEl || !hashEl) {
+    return;
+  }
+
+  button.addEventListener("click", async () => {
+    const version = versionEl.textContent?.trim() || "unavailable";
+    const hash = hashEl.textContent?.trim() || "unavailable";
+    const payload = `fliptrix version ${version} (commit ${hash})`;
+
+    button.disabled = true;
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(payload);
+      showFeedback(feedback, "info", "Build info copied.");
+    } catch (err) {
+      showFeedback(
+        feedback,
+        "error",
+        `Failed to copy build info: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       button.disabled = false;
