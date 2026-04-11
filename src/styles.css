@@ -57,6 +57,14 @@ h1 {
   letter-spacing: -0.04em;
 }
 
+#build-hash {
+  font-size: 0.35em;
+  font-weight: 400;
+  color: rgba(248, 242, 232, 0.35);
+  vertical-align: middle;
+  margin-left: 0.4em;
+}
+
 .lead {
   max-width: 42rem;
   color: rgba(248, 242, 232, 0.82);

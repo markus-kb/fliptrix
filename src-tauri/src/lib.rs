@@ -35,6 +35,13 @@ const STORE_FILE_ENV: &str = "FLIPTRIX_STORE_FILE";
 const APP_DATA_DIR_ENV: &str = "FLIPTRIX_APP_DATA_DIR";
 const BEARER_TOKEN_ENV: &str = "FLIPTRIX_BEARER_TOKEN";
 
+/// Short git commit hash injected at compile time by build.rs.
+/// Falls back to "dev" when not building from a git checkout.
+const GIT_HASH: &str = match option_env!("FLIPTRIX_GIT_HASH") {
+    Some(hash) => hash,
+    None => "dev",
+};
+
 /// Tauri app identifier — must match `tauri.conf.json` → `identifier`.
 const APP_ID: &str = "com.fliptrix.desktop";
 
@@ -745,6 +752,14 @@ fn restore_api_client(app: &AppHandle) -> Option<XApiClient> {
     }
 }
 
+/// Returns the short git commit hash embedded at build time.
+/// Frontend can call this to display the build version for verification
+/// against the source repository.
+#[tauri::command]
+fn get_build_info() -> String {
+    GIT_HASH.to_string()
+}
+
 // ---------------------------------------------------------------------------
 // App entry point
 // ---------------------------------------------------------------------------
@@ -805,6 +820,8 @@ pub fn run() {
             get_autostart_enabled,
             set_autostart_enabled,
             open_logs_directory,
+            // Build verification
+            get_build_info,
         ])
         .setup(move |app| {
             // Resolve the app data directory for cache file I/O.

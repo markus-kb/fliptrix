@@ -70,7 +70,7 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
     <section class="settings-shell">
       <header class="settings-header">
         <p class="eyebrow">Settings</p>
-        <h1>fliptrix</h1>
+        <h1>fliptrix <small id="build-hash"></small></h1>
         <p class="lead">Configure your screensaver.</p>
       </header>
 
@@ -450,6 +450,17 @@ function wireForm(root: HTMLElement, initialSettings: AppSettings): void {
   const form = root.querySelector<HTMLFormElement>("#settings-form");
   const previewFeedback = root.querySelector<HTMLElement>("#settings-feedback");
   if (!form || !previewFeedback) return;
+
+  // Populate the build hash so users can verify which commit the binary was
+  // built from.
+  invoke<string>("get_build_info")
+    .then((hash) => {
+      const hashEl = root.querySelector<HTMLElement>("#build-hash");
+      if (hashEl) hashEl.textContent = hash;
+    })
+    .catch(() => {
+      // Build info is non-essential; silently ignore if unavailable.
+    });
 
   const saveFeedback =
     root.querySelector<HTMLElement>("#settings-save-feedback") ?? previewFeedback;
