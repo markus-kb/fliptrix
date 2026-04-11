@@ -82,4 +82,4 @@ Each binary displays its source commit hash in Settings (next to the app title).
 
 ## License
 
-Private — all rights reserved.
+MIT License — see [LICENSE](LICENSE) for details.
