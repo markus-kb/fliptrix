@@ -72,7 +72,7 @@ impl XApiClient {
         }
 
         let http = reqwest::Client::builder()
-            .user_agent("fliptrix/0.1.0")
+            .user_agent("fliptrix/1.0.2")
             .build()
             .map_err(|e| format!("failed to build HTTP client: {e}"))?;
 

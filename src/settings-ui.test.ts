@@ -104,7 +104,7 @@ describe("initSettingsUi", () => {
     getAutostartEnabledMock.mockResolvedValue(false);
     openLogsDirectoryMock.mockResolvedValue("/tmp/fliptrix/logs");
     saveSettingsMock.mockResolvedValue();
-    getVersionMock.mockResolvedValue("0.1.0");
+    getVersionMock.mockResolvedValue("1.0.2");
     clipboardWriteTextMock.mockResolvedValue();
     Object.defineProperty(window.navigator, "clipboard", {
       configurable: true,
