@@ -96,6 +96,16 @@ function buildSettingsHtml(s: AppSettings, autostartEnabled: boolean): string {
               value="${s.mouse_dead_zone_px}" required />
             <span class="field-hint">Movement within this radius is ignored. Default: 5</span>
           </label>
+
+          <label class="field">
+            <span class="field-label">Display screensaver on</span>
+            <select name="screensaver_display_target">
+              <option value="main_only" ${s.screensaver_display_target === "main_only" ? "selected" : ""}>Main screen only</option>
+              <option value="other_only" ${s.screensaver_display_target === "other_only" ? "selected" : ""}>All other screens</option>
+              <option value="all" ${s.screensaver_display_target === "all" ? "selected" : ""}>All screens</option>
+            </select>
+            <span class="field-hint">Choose where screensaver windows are created when activated.</span>
+          </label>
         </fieldset>
 
         <!-- Mode -->
@@ -646,6 +656,9 @@ function readFormValues(form: HTMLFormElement, fallback: AppSettings): AppSettin
     mouse_dead_zone_px: num("mouse_dead_zone_px", fallback.mouse_dead_zone_px),
     debug_logging_enabled: bool("debug_logging_enabled", fallback.debug_logging_enabled),
     mode: (d.get("mode") as AppSettings["mode"]) ?? fallback.mode,
+    screensaver_display_target:
+      (d.get("screensaver_display_target") as AppSettings["screensaver_display_target"]) ??
+      fallback.screensaver_display_target,
     mode_switch_interval_mins: num("mode_switch_interval_mins", fallback.mode_switch_interval_mins),
     flipflap_rows: num("flipflap_rows", fallback.flipflap_rows),
     flipflap_cols: num("flipflap_cols", fallback.flipflap_cols),
@@ -694,6 +707,7 @@ function populateForm(form: HTMLFormElement, s: AppSettings): void {
     idle_timeout_secs: s.idle_timeout_secs,
     mouse_dead_zone_px: s.mouse_dead_zone_px,
     mode: s.mode,
+    screensaver_display_target: s.screensaver_display_target,
     mode_switch_interval_mins: s.mode_switch_interval_mins,
     flipflap_rows: s.flipflap_rows,
     flipflap_cols: s.flipflap_cols,

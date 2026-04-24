@@ -555,6 +555,34 @@ describe("initSettingsUi", () => {
     expect(topFeedback.hidden).toBe(true);
   });
 
+  it("saves selected screensaver display target", async () => {
+    const root = document.querySelector<HTMLElement>("#root");
+    if (!root) throw new Error("missing root");
+
+    await initSettingsUi(root);
+
+    const form = root.querySelector<HTMLFormElement>("#settings-form");
+    const targetSelect = root.querySelector<HTMLSelectElement>(
+      '[name="screensaver_display_target"]',
+    );
+
+    if (!form || !targetSelect) {
+      throw new Error("missing display target controls");
+    }
+
+    targetSelect.value = "other_only";
+
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(saveSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        screensaver_display_target: "other_only",
+      }),
+    );
+  });
+
   it("saves matrix mode and activates the screensaver when testing Matrix", async () => {
     const root = document.querySelector<HTMLElement>("#root");
     if (!root) throw new Error("missing root");

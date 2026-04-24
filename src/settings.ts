@@ -18,6 +18,9 @@ import { invoke } from "@tauri-apps/api/core";
 /** Which renderer the screensaver uses. Mirrors Rust `ScreensaverMode`. */
 export type ScreensaverMode = "flip_flap" | "matrix" | "both";
 
+/** Which monitor set should receive screensaver windows. */
+export type ScreensaverDisplayTarget = "main_only" | "other_only" | "all";
+
 /** All user-configurable settings. Mirrors Rust `AppSettings`. */
 export interface AppSettings {
   // General
@@ -27,6 +30,7 @@ export interface AppSettings {
 
   // Mode
   mode: ScreensaverMode;
+  screensaver_display_target: ScreensaverDisplayTarget;
   mode_switch_interval_mins: number;
 
   // FlipFlap renderer
@@ -66,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mouse_dead_zone_px: 5,
   debug_logging_enabled: false,
   mode: "matrix",
+  screensaver_display_target: "all",
   mode_switch_interval_mins: 10,
   flipflap_rows: 8,
   flipflap_cols: 40,

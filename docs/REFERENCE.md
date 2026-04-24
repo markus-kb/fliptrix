@@ -84,6 +84,7 @@ All settings are persisted in `tauri-plugin-store` under the key `app_settings`.
 | Setting | Default | Notes |
 |---------|---------|-------|
 | `mode` | `"matrix"` | `"flip_flap"`, `"matrix"`, or `"both"` |
+| `screensaver_display_target` | `"all"` | `"main_only"`, `"other_only"`, or `"all"` |
 | `idle_timeout_secs` | 300 | Seconds before screensaver activates |
 | `mouse_dead_zone_px` | 5.0 | Mouse movement threshold to deactivate |
 | `flipflap_rows` | 8 | Board height |

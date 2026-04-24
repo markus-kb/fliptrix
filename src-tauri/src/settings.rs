@@ -34,6 +34,20 @@ pub enum ScreensaverMode {
     Both,
 }
 
+/// Which monitor set receives screensaver windows.
+///
+/// `MainOnly` targets only the OS primary display.
+/// `OtherOnly` targets all non-primary displays.
+/// `All` keeps the current behavior and covers every display.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScreensaverDisplayTarget {
+    MainOnly,
+    OtherOnly,
+    #[default]
+    All,
+}
+
 // ---------------------------------------------------------------------------
 // Top-level settings
 // ---------------------------------------------------------------------------
@@ -62,6 +76,10 @@ pub struct AppSettings {
     /// Which visual mode to show (default: Matrix).
     #[serde(default)]
     pub mode: ScreensaverMode,
+
+    /// Which monitors should display the screensaver windows.
+    #[serde(default)]
+    pub screensaver_display_target: ScreensaverDisplayTarget,
 
     /// When `mode == Both`, minutes between automatic mode switches (default: 10).
     #[serde(default = "default_mode_switch_interval_mins")]
@@ -255,6 +273,7 @@ impl Default for AppSettings {
             mouse_dead_zone_px: default_mouse_dead_zone_px(),
             debug_logging_enabled: default_debug_logging_enabled(),
             mode: ScreensaverMode::default(),
+            screensaver_display_target: ScreensaverDisplayTarget::default(),
             mode_switch_interval_mins: default_mode_switch_interval_mins(),
             flipflap_rows: default_flipflap_rows(),
             flipflap_cols: default_flipflap_cols(),
@@ -438,6 +457,14 @@ mod tests {
     }
 
     #[test]
+    fn test_default_display_target_is_all() {
+        assert_eq!(
+            AppSettings::default().screensaver_display_target,
+            ScreensaverDisplayTarget::All
+        );
+    }
+
+    #[test]
     fn test_default_idle_timeout() {
         assert_eq!(AppSettings::default().idle_timeout_secs, 300);
     }
@@ -547,6 +574,26 @@ mod tests {
         assert_eq!(m, ScreensaverMode::Matrix);
         let m: ScreensaverMode = serde_json::from_str("\"both\"").unwrap();
         assert_eq!(m, ScreensaverMode::Both);
+    }
+
+    #[test]
+    fn test_display_target_serializes_as_snake_case() {
+        let s = serde_json::to_string(&ScreensaverDisplayTarget::MainOnly).unwrap();
+        assert_eq!(s, "\"main_only\"");
+        let s = serde_json::to_string(&ScreensaverDisplayTarget::OtherOnly).unwrap();
+        assert_eq!(s, "\"other_only\"");
+        let s = serde_json::to_string(&ScreensaverDisplayTarget::All).unwrap();
+        assert_eq!(s, "\"all\"");
+    }
+
+    #[test]
+    fn test_display_target_deserializes_from_snake_case() {
+        let t: ScreensaverDisplayTarget = serde_json::from_str("\"main_only\"").unwrap();
+        assert_eq!(t, ScreensaverDisplayTarget::MainOnly);
+        let t: ScreensaverDisplayTarget = serde_json::from_str("\"other_only\"").unwrap();
+        assert_eq!(t, ScreensaverDisplayTarget::OtherOnly);
+        let t: ScreensaverDisplayTarget = serde_json::from_str("\"all\"").unwrap();
+        assert_eq!(t, ScreensaverDisplayTarget::All);
     }
 
     #[test]

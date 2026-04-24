@@ -8,6 +8,8 @@
 use serde::Serialize;
 use tauri::{window::Color, AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
+use crate::settings::ScreensaverDisplayTarget;
+
 // ---------------------------------------------------------------------------
 // Pure data types — testable without a running Tauri app
 // ---------------------------------------------------------------------------
@@ -36,6 +38,42 @@ pub fn screensaver_label(monitor_index: usize) -> String {
     format!("screensaver-{monitor_index}")
 }
 
+/// Returns monitor indices to target based on display preference.
+///
+/// The primary index falls back to 0 when the platform does not expose a
+/// primary display but at least one monitor exists.
+pub fn select_monitor_indices(
+    total_monitors: usize,
+    primary_index: Option<usize>,
+    target: ScreensaverDisplayTarget,
+) -> Vec<usize> {
+    if total_monitors == 0 {
+        return Vec::new();
+    }
+
+    let primary = primary_index.filter(|i| *i < total_monitors).unwrap_or(0);
+
+    match target {
+        ScreensaverDisplayTarget::All => (0..total_monitors).collect(),
+        ScreensaverDisplayTarget::MainOnly => vec![primary],
+        ScreensaverDisplayTarget::OtherOnly => {
+            (0..total_monitors).filter(|i| *i != primary).collect()
+        }
+    }
+}
+
+fn is_same_monitor(a: &tauri::Monitor, b: &tauri::Monitor) -> bool {
+    a.position().x == b.position().x
+        && a.position().y == b.position().y
+        && a.size().width == b.size().width
+        && a.size().height == b.size().height
+        && (a.scale_factor() - b.scale_factor()).abs() < f64::EPSILON
+}
+
+fn primary_monitor_index(monitors: &[tauri::Monitor], primary: &tauri::Monitor) -> Option<usize> {
+    monitors.iter().position(|m| is_same_monitor(m, primary))
+}
+
 // ---------------------------------------------------------------------------
 // Tauri-dependent window management
 // ---------------------------------------------------------------------------
@@ -52,7 +90,10 @@ pub fn screensaver_label(monitor_index: usize) -> String {
 ///
 /// Windows that fail to create are logged and skipped — partial coverage is
 /// better than crashing the whole screensaver activation.
-pub fn create_screensaver_windows<R: Runtime>(app: &AppHandle<R>) -> Vec<String> {
+pub fn create_screensaver_windows<R: Runtime>(
+    app: &AppHandle<R>,
+    display_target: ScreensaverDisplayTarget,
+) -> Vec<String> {
     // We need an existing window to call `available_monitors()`.
     // Use the main settings window which should always exist.
     let main_window = match app.get_webview_window("main") {
@@ -76,15 +117,39 @@ pub fn create_screensaver_windows<R: Runtime>(app: &AppHandle<R>) -> Vec<String>
         return Vec::new();
     }
 
+    let primary_idx = match main_window.primary_monitor() {
+        Ok(Some(primary)) => primary_monitor_index(&monitors, &primary),
+        Ok(None) => None,
+        Err(e) => {
+            log::warn!("failed to resolve primary monitor, defaulting to monitor 0: {e}");
+            None
+        }
+    };
+
+    let selected_indices = select_monitor_indices(monitors.len(), primary_idx, display_target);
+
+    if selected_indices.is_empty() {
+        log::warn!(
+            "display target {:?} selected no monitors (total monitors: {})",
+            display_target,
+            monitors.len()
+        );
+        return Vec::new();
+    }
+
     log::info!(
-        "creating screensaver windows on {} monitor(s)",
-        monitors.len()
+        "creating screensaver windows on {} monitor(s) with target {:?}",
+        selected_indices.len(),
+        display_target
     );
+
+    let selected_count = selected_indices.len();
 
     let mut created_labels = Vec::new();
 
-    for (i, monitor) in monitors.iter().enumerate() {
-        let label = screensaver_label(i);
+    for monitor_index in selected_indices {
+        let monitor = &monitors[monitor_index];
+        let label = screensaver_label(monitor_index);
         let pos = monitor.position();
         let size = monitor.size();
         let scale = monitor.scale_factor();
@@ -97,7 +162,7 @@ pub fn create_screensaver_windows<R: Runtime>(app: &AppHandle<R>) -> Vec<String>
         let logical_h = size.height as f64 / scale;
 
         log::info!(
-            "  monitor {i}: {:?} pos=({},{}) size={}x{} scale={scale:.2} → logical ({logical_x},{logical_y}) {logical_w}x{logical_h}",
+            "  monitor {monitor_index}: {:?} pos=({},{}) size={}x{} scale={scale:.2} → logical ({logical_x},{logical_y}) {logical_w}x{logical_h}",
             monitor.name(),
             pos.x,
             pos.y,
@@ -113,7 +178,7 @@ pub fn create_screensaver_windows<R: Runtime>(app: &AppHandle<R>) -> Vec<String>
             .always_on_top(true)
             .resizable(false)
             .skip_taskbar(true)
-            .focused(i == 0) // Focus only the first window
+            .focused(created_labels.is_empty()) // Focus only the first created window
             .background_color(Color(0, 0, 0, 255))
             .visible(true);
 
@@ -138,7 +203,7 @@ pub fn create_screensaver_windows<R: Runtime>(app: &AppHandle<R>) -> Vec<String>
     log::info!(
         "created {}/{} screensaver windows",
         created_labels.len(),
-        monitors.len()
+        selected_count
     );
     created_labels
 }
@@ -250,5 +315,39 @@ mod tests {
         let json = serde_json::to_string(&info).unwrap();
         assert!(json.contains("\"name\":null"));
         assert!(json.contains("\"x\":1920"));
+    }
+
+    #[test]
+    fn select_monitor_indices_all_returns_every_monitor() {
+        let selected =
+            select_monitor_indices(3, Some(1), crate::settings::ScreensaverDisplayTarget::All);
+        assert_eq!(selected, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn select_monitor_indices_main_only_returns_primary() {
+        let selected = select_monitor_indices(
+            3,
+            Some(2),
+            crate::settings::ScreensaverDisplayTarget::MainOnly,
+        );
+        assert_eq!(selected, vec![2]);
+    }
+
+    #[test]
+    fn select_monitor_indices_other_only_excludes_primary() {
+        let selected = select_monitor_indices(
+            4,
+            Some(1),
+            crate::settings::ScreensaverDisplayTarget::OtherOnly,
+        );
+        assert_eq!(selected, vec![0, 2, 3]);
+    }
+
+    #[test]
+    fn select_monitor_indices_uses_index_zero_when_primary_missing() {
+        let selected =
+            select_monitor_indices(2, None, crate::settings::ScreensaverDisplayTarget::MainOnly);
+        assert_eq!(selected, vec![0]);
     }
 }

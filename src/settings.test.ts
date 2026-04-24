@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { type AppSettings, DEFAULT_SETTINGS, type ScreensaverMode } from "./settings";
+import {
+  type AppSettings,
+  DEFAULT_SETTINGS,
+  type ScreensaverDisplayTarget,
+  type ScreensaverMode,
+} from "./settings";
 
 describe("DEFAULT_SETTINGS", () => {
   it("uses matrix as the default mode", () => {
@@ -58,6 +63,10 @@ describe("DEFAULT_SETTINGS", () => {
     expect(DEFAULT_SETTINGS.fetch_on_startup).toBe(false);
   });
 
+  it("targets all screens by default", () => {
+    expect(DEFAULT_SETTINGS.screensaver_display_target).toBe<ScreensaverDisplayTarget>("all");
+  });
+
   it("is a plain object (spread-cloneable without reference sharing)", () => {
     const copy: AppSettings = { ...DEFAULT_SETTINGS };
     copy.idle_timeout_secs = 999;
@@ -69,5 +78,12 @@ describe("ScreensaverMode type", () => {
   it("accepts all three valid mode strings", () => {
     const modes: ScreensaverMode[] = ["flip_flap", "matrix", "both"];
     expect(modes).toHaveLength(3);
+  });
+});
+
+describe("ScreensaverDisplayTarget type", () => {
+  it("accepts all valid display target strings", () => {
+    const targets: ScreensaverDisplayTarget[] = ["main_only", "other_only", "all"];
+    expect(targets).toHaveLength(3);
   });
 });

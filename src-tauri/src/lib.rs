@@ -21,7 +21,7 @@ use api_client::XApiClient;
 use idle::IdleProvider;
 use lifecycle::{LifecycleConfig, LifecycleMachine, ScreensaverState, StateTransition};
 use models::{Post, PostCache};
-use settings::AppSettings;
+use settings::{AppSettings, ScreensaverDisplayTarget};
 use windowing::MonitorInfo;
 
 // ---------------------------------------------------------------------------
@@ -181,7 +181,13 @@ async fn activate_screensaver(app: AppHandle) -> Result<Vec<String>, String> {
         guard.force_activate();
     }
 
-    let labels = windowing::create_screensaver_windows(&app);
+    let display_target = state
+        .settings
+        .lock()
+        .map(|s| s.screensaver_display_target)
+        .unwrap_or(ScreensaverDisplayTarget::All);
+
+    let labels = windowing::create_screensaver_windows(&app, display_target);
 
     if labels.is_empty() {
         // Roll back the state machine if no windows could be created.
@@ -650,7 +656,13 @@ fn start_idle_poller(app: &AppHandle, poll_interval: Duration) {
                 match t {
                     StateTransition::Activate => {
                         log::info!("idle timeout reached — activating screensaver");
-                        windowing::create_screensaver_windows(&handle);
+                        let display_target = state
+                            .settings
+                            .lock()
+                            .map(|s| s.screensaver_display_target)
+                            .unwrap_or(ScreensaverDisplayTarget::All);
+
+                        windowing::create_screensaver_windows(&handle, display_target);
                         if let Err(e) = handle.emit("screensaver:activate", ()) {
                             log::error!("failed to emit screensaver:activate: {e}");
                         }
